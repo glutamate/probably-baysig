@@ -55,6 +55,14 @@ oneOf :: [a] -> SamFun a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs -1)
               return $ xs !! idx
 
+bayesRejection :: (a->Double) -> Double -> SamFun a -> SamFun a
+bayesRejection p c q = bayes
+    where bayes = do x <- q
+                     u <- unitSample
+                     if u < p x / c 
+                        then return x
+                        else bayes      
+
 runSamFun :: [Double] -> SamFun a -> [a]
 runSamFun rs sf = let (x,rs') = (unSF sf) rs in x:runSamFun rs' sf
 
@@ -84,27 +92,13 @@ mean = go 0 0
             go s n []     = s / fromIntegral n
             go !s !n (x:xs) = go (s+x) (n+1) xs
 
-
-{-mean :: Fractional a => [a] -> a
-mean xs = (fstS fld) / (sndS fld)
-    where fld = foldl (\(s :*: n) v -> (s+v :*: n+1)) (0 :*: 0) xs -}
-
 meanSD :: Floating a => [a] -> (a,a)
 meanSD = go 0 0 0
     where go sq s n [] = let len = fromIntegral n in
                          (s/len, (recip len)*sqrt (len*sq-s*s))
           go !sq !s !n (x:xs) = go (sq+x*x) (s+x) (n+1) xs
 
-{-meanVar xs = (sum / len, (recip len)*sqrt (len*sumsq-sum*sum))
-    where bigfold = foldl (\(sumsqr :*: sumv :*: n) v -> (sumsqr+v^2 :*: sumv+v :*: n+1)) (0 :*:0 :*:0) xs
-	  sumsq = fst3 bigfold
-	  sum = snd3 bigfold
-	  len = realToFrac $ trd3 bigfold
-          fst3 (x:*:y:*:z) = x
-          snd3 (x:*:y:*:z) = y
-          trd3 (x:*:y:*:z) = z-}
 
--- sum xs / (realToFrac $ length xs) 
 
 test_mean = mean [0..1e8]
 test_meanVar = meanSD [0..1e8]
@@ -112,6 +106,3 @@ test_meanVar = meanSD [0..1e8]
 main = do u <- expectSD 1000000 $ gauss 0 1
           print u
 
-
---foo = randoms `fmap` getStdGen 
---main = return ()
