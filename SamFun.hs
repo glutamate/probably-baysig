@@ -1,8 +1,8 @@
 {-# OPTIONS -fbang-patterns #-}
 
-module SamFun where
+module Main where
 
-import System.Random
+import System.Random.Mersenne
 import Control.Monad
 import Control.Applicative
 import Data.Array.Vector
@@ -58,10 +58,18 @@ oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs -1
 runSamFun :: [Double] -> SamFun a -> [a]
 runSamFun rs sf = let (x,rs') = (unSF sf) rs in x:runSamFun rs' sf
 
+runSamFunIO :: SamFun a -> IO [a]
+runSamFunIO sf = do rnds <- randoms =<< getStdGen 
+                    return $ runSamFun rnds sf
+
+
 expectation :: Fractional a =>  Int -> SamFun a -> IO a
 expectation n sf = 
-    do rnds <- randoms `fmap` getStdGen 
-       return . mean $ runSamFun rnds sf
+    (mean . take n) `fmap` runSamFunIO sf
+ 
+expectSD :: Floating a =>  Int -> SamFun a -> IO (a,a)
+expectSD n sf = 
+    (meanSD . take n) `fmap` runSamFunIO sf
                  
 
 mapPair :: (a->b) -> (a,a) -> (b,b)
@@ -81,8 +89,8 @@ mean = go 0 0
 mean xs = (fstS fld) / (sndS fld)
     where fld = foldl (\(s :*: n) v -> (s+v :*: n+1)) (0 :*: 0) xs -}
 
-meanVar :: Floating a => [a] -> (a,a)
-meanVar = go 0 0 0
+meanSD :: Floating a => [a] -> (a,a)
+meanSD = go 0 0 0
     where go sq s n [] = let len = fromIntegral n in
                          (s/len, (recip len)*sqrt (len*sq-s*s))
           go !sq !s !n (x:xs) = go (sq+x*x) (s+x) (n+1) xs
@@ -99,4 +107,11 @@ meanVar = go 0 0 0
 -- sum xs / (realToFrac $ length xs) 
 
 test_mean = mean [0..1e8]
-test_meanVar = meanVar [0..1e8]
+test_meanVar = meanSD [0..1e8]
+
+main = do u <- expectSD 1000000 $ gauss 0 1
+          print u
+
+
+--foo = randoms `fmap` getStdGen 
+--main = return ()
