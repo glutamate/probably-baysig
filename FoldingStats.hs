@@ -1,8 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-module FoldingStats
+module FoldingStats where
 
-import qualified Data.List as L
+--import qualified Data.List as L
 import Control.Applicative
 import Data.Foldable
 import Data.Array.Vector
@@ -50,8 +50,8 @@ bothWith combiner f1 f2 = after (both f1 f2) (uncurry combiner)
 --Now that we have tools to build folds, we want to actually fold them, so here is combinator foldl':
 
 
-cfoldl' :: Fold b c -> [b] -> c
-cfoldl' (F f x c _) xs = c $ (L.foldl' f x) xs
+--cfoldl' :: Fold b c -> [b] -> c
+--cfoldl' (F f x c _) xs = c $ (L.foldl' f x) xs
 --cfoldl' (C v) _ = v
 
 runStat :: (Foldable t) => Fold b c -> t b -> c
@@ -99,8 +99,8 @@ stdDev = pure (/) <*> (sqrt <$> innerDiff) <*> realLengthF
 meanF :: Fractional a => Fold a a
 meanF = pure (/) <*> sumF <*> realLengthF
 
-mean :: Fractional a => [a] -> a
-mean = cfoldl' meanF
+--mean :: Fractional a => [a] -> a
+--mean = cfoldl' meanF
 
 {-regress :: (Tagged t) => [t (Double,Double)] -> (Double,Double) --tag of type num,num
 regress vls = let xs = map (fst . getTag) vls
