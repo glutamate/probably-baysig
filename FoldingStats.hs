@@ -60,6 +60,8 @@ runStat (F f x c _) = c . (foldl' f x)
 runStatU :: (UA b) => Fold b c -> UArr b -> c
 runStatU (F f x c _) = c . (foldlU f x) 
 
+--runStatWithFold folder (F f x c _) = c . (folder f x) 
+
 --Now lets see a few basic folds:
 
 

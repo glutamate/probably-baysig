@@ -27,6 +27,27 @@ instance Monad SamFun where
     (SF sf) >>= f = SF $ \rs-> let (x, rs') = sf rs in
                                (unSF $ f x) rs'
 
+(.==.), (./=.) :: (Eq a, Applicative m) => m a -> m a -> m Bool
+(.==.) = liftA2 (==)
+(./=.) = liftA2 (/=)
+
+compareA :: (Ord a, Applicative m) => m a -> m a -> m Ordering
+compareA = liftA2 (compare) 
+
+(.<.), (.>.), (.>=.), (.<=.):: (Ord a, Applicative m) => m a -> m a -> m Bool
+(.<.) = liftA2 (<)
+(.>.) = liftA2 (>)
+(.>=.) = liftA2 (>=)
+(.<=.) = liftA2 (<=)
+
+--conor mcbride haskell-cafe 04 may 09
+if_ :: Monad m => m Bool -> m t -> m t -> m t
+if_ test yes no = do
+  b <- test
+  if b then yes else no
+
+
+
 joint :: SamFun a -> SamFun b -> SamFun (a,b)
 joint sf1 sf2 = liftM2 (,) sf1 sf2
 
