@@ -97,7 +97,7 @@ minF = F (min) (maxBound) id (min)
 
 stdDev = pure (/) <*> (sqrt <$> innerDiff) <*> realLengthF
 	where innerDiff = pure (-) <*> (pure (*) <*> realLengthF <*> sumSqrF) <*> (before sumF square)
-
+-- correct?
 meanF :: Fractional a => Fold a a
 meanF = pure (/) <*> sumF <*> realLengthF
 
