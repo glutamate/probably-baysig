@@ -1,0 +1,13 @@
+Name:                probably
+Version:             0.1
+Description:         Probability and Statistics
+License:             BSD3
+License-file:        LICENSE
+Author:              Tom Nielsen
+Maintainer:          tanielsen@gmail.com
+build-type:          Simple
+Exposed-modules:     Math.Probably.SamFun,
+                     Math.Probably.FoldingStats,
+                     Math.Probably.ChunkedArray
+			
+Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion

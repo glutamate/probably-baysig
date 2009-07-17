@@ -1,6 +1,6 @@
-{-# OPTIONS -fbang-patterns #-}
+{-# LANGUAGE BangPatterns #-}
 
-module Main where
+module Math.Probably.SamFun where
 
 import System.Random.Mersenne
 import Control.Monad

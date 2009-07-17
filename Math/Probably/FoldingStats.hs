@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-module FoldingStats where
+module Math.Probably.FoldingStats where
 
 --import qualified Data.List as L
 import Control.Applicative

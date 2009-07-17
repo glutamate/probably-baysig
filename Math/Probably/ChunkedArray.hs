@@ -1,4 +1,4 @@
-module ChunkedArray where
+module Math.Probably.ChunkedArray where
 
 import Data.Array.Vector
 import Data.List (foldl')
