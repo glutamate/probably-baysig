@@ -1,28 +1,28 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Math.Probably.SamFun where
+module Math.Probably.Sampler where
 
 import System.Random.Mersenne
 import Control.Monad
 import Control.Applicative
 import Data.Array.Vector
 
-newtype SamFun a = SF {unSF :: [Double] -> (a, [Double]) }
+newtype Sampler a = SF {unSF :: [Double] -> (a, [Double]) }
 
-unitSample :: SamFun Double
+unitSample :: Sampler Double
 unitSample = SF $ \(r:rs) -> (r,rs)
 
-instance Functor SamFun where
+instance Functor Sampler where
     fmap f (SF sf) = SF $ \rs -> let (x,rs') = sf rs in
                                  (f x, rs')
 
-instance Applicative SamFun where
+instance Applicative Sampler where
     pure x = SF (\rs-> (x, rs))
     (SF sff) <*> (SF sfx) = SF $ \rs-> let (f ,rs') = sff rs 
                                            (x, rs'') = sfx rs' in
                                        (f x, rs'')
 
-instance Monad SamFun where
+instance Monad Sampler where
     return = pure
     (SF sf) >>= f = SF $ \rs-> let (x, rs') = sf rs in
                                (unSF $ f x) rs'
@@ -48,35 +48,35 @@ if_ test yes no = do
 
 
 
-joint :: SamFun a -> SamFun b -> SamFun (a,b)
+joint :: Sampler a -> Sampler b -> Sampler (a,b)
 joint sf1 sf2 = liftM2 (,) sf1 sf2
 
-jointConditional :: SamFun a -> (a-> SamFun b) -> SamFun (a,b)
+jointConditional :: Sampler a -> (a-> Sampler b) -> Sampler (a,b)
 jointConditional sf1 condsf 
     = do x <- sf1
          y <- condsf x
          return (x,y)
                                  
 
-uniform :: (Fractional a) => a -> a -> SamFun a
+uniform :: (Fractional a) => a -> a -> Sampler a
 uniform a b = (\x->(realToFrac x)*(b-a)+a) `fmap` unitSample
                 
 --http://en.wikipedia.org/wiki/Box-Muller_transform
-gauss :: (Floating b) => b -> b -> SamFun b
+gauss :: (Floating b) => b -> b -> Sampler b
 gauss m sd = 
     do (u1,u2) <- (mapPair realToFrac) `fmap` joint unitSample unitSample
        return $ sqrt(-2*log(u1))*cos(2*pi*u2)*sd+m
 
 
-bernoulli :: Double -> SamFun Bool
+bernoulli :: Double -> Sampler Bool
 bernoulli p = (<p) `fmap` unitSample 
 
 
-oneOf :: [a] -> SamFun a
+oneOf :: [a] -> Sampler a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs -1)
               return $ xs !! idx
 
-bayesRejection :: (a->Double) -> Double -> SamFun a -> SamFun a
+bayesRejection :: (a->Double) -> Double -> Sampler a -> Sampler a
 bayesRejection p c q = bayes
     where bayes = do x <- q
                      u <- unitSample
@@ -84,27 +84,28 @@ bayesRejection p c q = bayes
                         then return x
                         else bayes      
 
-runSamFun :: [Double] -> SamFun a -> [a]
-runSamFun rs sf = let (x,rs') = (unSF sf) rs in x:runSamFun rs' sf
+runSampler :: [Double] -> Sampler a -> [a]
+runSampler rs sf = let (x,rs') = (unSF sf) rs in x:runSampler rs' sf
 
-runSamFunIO :: SamFun a -> IO [a]
-runSamFunIO sf = do rnds <- randoms =<< getStdGen 
-                    return $ runSamFun rnds sf
+runSamplerIO :: Sampler a -> IO [a]
+runSamplerIO sf = do rnds <- randoms =<< getStdGen 
+                     return $ runSampler rnds sf
 
 
-expectation :: Fractional a =>  Int -> SamFun a -> IO a
+{-
+expectation :: Fractional a =>  Int -> Sampler a -> IO a
 expectation n sf = 
-    (mean . take n) `fmap` runSamFunIO sf
+    (mean . take n) `fmap` runSamplerIO sf
  
-expectSD :: Floating a =>  Int -> SamFun a -> IO (a,a)
+expectSD :: Floating a =>  Int -> Sampler a -> IO (a,a)
 expectSD n sf = 
-    (meanSD . take n) `fmap` runSamFunIO sf
-                 
+    (meanSD . take n) `fmap` runSamplerIO sf
+-}                 
 
 mapPair :: (a->b) -> (a,a) -> (b,b)
 mapPair f (x,y) = (f x, f y)
 
-
+{-
 --http://cgi.cse.unsw.edu.au/~dons/blog/2008/05/16#fast
 mean :: Fractional a =>  [a] -> a
 mean = go 0 0
@@ -127,3 +128,4 @@ test_meanVar = meanSD [0..1e8]
 main = do u <- expectSD 1000000 $ gauss 0 1
           print u
 
+-}

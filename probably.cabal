@@ -6,9 +6,11 @@ License-file:        LICENSE
 Author:              Tom Nielsen
 Maintainer:          tanielsen@gmail.com
 build-type:          Simple
-Exposed-modules:     Math.Probably.SamFun,
+Exposed-modules:     Math.Probably.Sampler,
                      Math.Probably.FoldingStats,
                      Math.Probably.PlotR,
-                     Math.Probably.ChunkedArray
+                     Math.Probably.ChunkedArray,
+		     Math.Probably.PDF,
+		     Math.Probably.MCMC
 			
 Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, random, directory, process, tnutils, mtl
