@@ -1,9 +1,13 @@
+{-# LANGUAGE TypeOperators #-}
+
 module Math.Probably.PlotR where
 
 import System.Cmd
 import System.Directory
 import Data.List
 import Data.Unique
+import TNUtils
+import Control.Monad.Trans
 
 data RPlotCmd = RPlCmd {
 --      plotData :: String,
@@ -17,20 +21,21 @@ data PlotLine = TimeSeries String | Histo String | PLPoints [(Double,Double)] | 
 plotLines :: [PlotLine] -> String
 plotLines pls = let tss = [ts | TimeSeries ts <- pls ]
                     pts = [ts | PLPoints ts <- pls ]
-                    lns = [ts | PLLines ts <- pls ] in
-                case tss of 
-                  [] -> plotLinesNoTS lns pts
-                  tsss -> unlines ["ts.plot("++(intercalate "," tsss)++")",
+                    lns = [ts | PLLines ts <- pls ]
+                    hss = [ts | Histo ts <- pls ] in
+                cond 
+                [(nonempty tss, unlines ["ts.plot("++(intercalate "," tss)++")",
                                    unlines $ map lnsplot lns,
-                                   unlines $ map ptplot pts]
-    where lnsplot ln = ""
-          ptplot pt = let (xs,ys) = unzip pt in 
-                      "points(c("++(intercalate "," $ map show xs)++"), c("++(intercalate "," $ map show xs)++"))"
+                                   unlines $ map ptplot pts]),
+                 (nonempty hss, ""),
+                 (True, plotLinesNoTS lns pts)]
+
+    where lnsplot = lnsOrPnts "lines"
+          ptplot = lnsOrPnts "points"
+          lnsOrPnts cmd xsys = let (xs,ys) = unzip xsys in 
+                               cmd++"(c("++(intercalate "," $ map show xs)++"), c("++(intercalate "," $ map show ys)++"))"
 
 plotLinesNoTS lns pts = "not implemented"--figure out dimensions
-
-idInt :: Int -> Int
-idInt = id
 
 class PlotWithR a where
     getRPlotCmd :: a -> IO RPlotCmd
@@ -54,6 +59,9 @@ plotWithR pl' = do
   cleanUp pl
   return ()
 
+plot :: (MonadIO m, PlotWithR p) => p -> m ()
+plot = liftIO . plotWithR
+
 newtype Points a = Points [a]
 
 instance Real a => PlotWithR (Points a) where
@@ -62,16 +70,28 @@ instance Real a => PlotWithR (Points a) where
         return $ RPlCmd {
                      prePlot = [],
                      plotArgs = [PLPoints $ zip [0..] $ map realToFrac xs], cleanUp = return () }
-instance (PlotWithR a, PlotWithR b) => PlotWithR (a,b) where
-    getRPlotCmd (xs,ys) = do
+
+data a :+: b = a :+: b
+
+instance (PlotWithR a, PlotWithR b) => PlotWithR (a :+: b) where
+    getRPlotCmd (xs :+: ys) = do
       px <- getRPlotCmd xs
       py <- getRPlotCmd ys                          
       return $ RPlCmd {
                      prePlot = prePlot py++prePlot px,
                      plotArgs = plotArgs px++plotArgs py, 
                      cleanUp = cleanUp px >> cleanUp px }
+
+instance (PlotWithR a) => PlotWithR [a] where
+    getRPlotCmd xs = do
+      pxs <- mapM getRPlotCmd xs
+      return $ RPlCmd {
+                     prePlot = concatMap prePlot pxs,
+                     plotArgs = concatMap plotArgs pxs, 
+                     cleanUp = mapM_ cleanUp pxs}
+
                                
-test = plotWithR (Points [1,2,3], Points [4,5,6])
+test = plotWithR (Points [1,2,3] :+: Points [4,5,6])
 
 
 --plotWithR :: V -> IO ()

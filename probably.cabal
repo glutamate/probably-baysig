@@ -11,4 +11,4 @@ Exposed-modules:     Math.Probably.SamFun,
                      Math.Probably.PlotR,
                      Math.Probably.ChunkedArray
 			
-Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, random, directory, process
+Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, random, directory, process, tnutils, mtl
