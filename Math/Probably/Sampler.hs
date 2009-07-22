@@ -7,25 +7,25 @@ import Control.Monad
 import Control.Applicative
 import Data.Array.Vector
 
-newtype Sampler a = SF {unSF :: [Double] -> (a, [Double]) }
+newtype Sampler a = Sam {unSam :: [Double] -> (a, [Double]) }
 
 unitSample :: Sampler Double
-unitSample = SF $ \(r:rs) -> (r,rs)
+unitSample = Sam $ \(r:rs) -> (r,rs)
 
 instance Functor Sampler where
-    fmap f (SF sf) = SF $ \rs -> let (x,rs') = sf rs in
-                                 (f x, rs')
+    fmap f (Sam sf) = Sam $ \rs -> let (x,rs') = sf rs in
+                                   (f x, rs')
 
 instance Applicative Sampler where
-    pure x = SF (\rs-> (x, rs))
-    (SF sff) <*> (SF sfx) = SF $ \rs-> let (f ,rs') = sff rs 
-                                           (x, rs'') = sfx rs' in
-                                       (f x, rs'')
+    pure x = Sam (\rs-> (x, rs))
+    (Sam sff) <*> (Sam sfx) = Sam $ \rs-> let (f ,rs') = sff rs 
+                                              (x, rs'') = sfx rs' in
+                                          (f x, rs'')
 
 instance Monad Sampler where
     return = pure
-    (SF sf) >>= f = SF $ \rs-> let (x, rs') = sf rs in
-                               (unSF $ f x) rs'
+    (Sam sf) >>= f = Sam $ \rs-> let (x, rs') = sf rs in
+                               (unSam $ f x) rs'
 
 (.==.), (./=.) :: (Eq a, Applicative m) => m a -> m a -> m Bool
 (.==.) = liftA2 (==)
@@ -85,7 +85,7 @@ bayesRejection p c q = bayes
                         else bayes      
 
 runSampler :: [Double] -> Sampler a -> [a]
-runSampler rs sf = let (x,rs') = (unSF sf) rs in x:runSampler rs' sf
+runSampler rs sf = let (x,rs') = (unSam sf) rs in x:runSampler rs' sf
 
 runSamplerIO :: Sampler a -> IO [a]
 runSamplerIO sf = do rnds <- randoms =<< getStdGen 

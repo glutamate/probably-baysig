@@ -54,8 +54,11 @@ bothWith combiner f1 f2 = after (both f1 f2) (uncurry combiner)
 --cfoldl' (F f x c _) xs = c $ (L.foldl' f x) xs
 --cfoldl' (C v) _ = v
 
+progressively :: Fold b c -> [b] -> [c]
+progressively (F f x c _) = map c . (scanl f x) 
+
 runStat :: (Foldable t) => Fold b c -> t b -> c
-runStat (F f x c _) = c . (foldl' f x) 
+runStat (F f x c _) = c . (foldl' f x)
 
 runStatU :: (UA b) => Fold b c -> UArr b -> c
 runStatU (F f x c _) = c . (foldlU f x) 
