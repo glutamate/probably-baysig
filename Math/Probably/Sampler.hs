@@ -6,6 +6,7 @@ import System.Random.Mersenne
 import Control.Monad
 import Control.Applicative
 import Data.Array.Vector
+import qualified Math.Probably.PDF as PDF
 
 newtype Sampler a = Sam {unSam :: [Double] -> (a, [Double]) }
 
@@ -76,13 +77,16 @@ oneOf :: [a] -> Sampler a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs -1)
               return $ xs !! idx
 
-bayesRejection :: (a->Double) -> Double -> Sampler a -> Sampler a
+bayesRejection :: (PDF.PDF a) -> Double -> Sampler a -> Sampler a
 bayesRejection p c q = bayes
     where bayes = do x <- q
                      u <- unitSample
                      if u < p x / c 
                         then return x
                         else bayes      
+
+--bayes2 :: Sampler a -> (a->Sampler a) -> Sampler a
+--bayes2 = (>>=)
 
 runSampler :: [Double] -> Sampler a -> [a]
 runSampler rs sf = let (x,rs') = (unSam sf) rs in x:runSampler rs' sf

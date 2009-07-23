@@ -27,15 +27,13 @@ plotLines pls = let tss = [ts | TimeSeries ts <- pls ]
                 [(nonempty tss, unlines ["ts.plot("++(intercalate "," tss)++")",
                                    unlines $ map lnsplot lns,
                                    unlines $ map ptplot pts]),
-                 (nonempty hss, ""),
-                 (True, plotLinesNoTS lns pts)]
+                 (nonempty hss, "hist("++head hss++")"),
+                 (nonempty lns, unlines $ map (lnsOrPnts "plot" ", type=\"l\", xlab=\"xs\", ylab=\"ys\"") lns)]
 
-    where lnsplot = lnsOrPnts "lines"
-          ptplot = lnsOrPnts "points"
-          lnsOrPnts cmd xsys = let (xs,ys) = unzip xsys in 
-                               cmd++"(c("++(intercalate "," $ map show xs)++"), c("++(intercalate "," $ map show ys)++"))"
-
-plotLinesNoTS lns pts = "not implemented"--figure out dimensions
+    where lnsplot = lnsOrPnts "lines" ""
+          ptplot = lnsOrPnts "points" ""
+          lnsOrPnts cmd extra xsys  = let (xs,ys) = unzip xsys in 
+                               cmd++"(c("++(intercalate "," $ map show xs)++"), c("++(intercalate "," $ map show ys)++")"++extra++")"
 
 class PlotWithR a where
     getRPlotCmd :: a -> IO RPlotCmd
@@ -53,7 +51,7 @@ plotWithR pl' = do
                  "z<-locator(1)",
                  "q()"]
   writeFile rfile $ rlines
-  putStrLn rlines
+  --putStrLn rlines
   system $ "R --vanilla --slave < "++rfile
   removeFile rfile
   cleanUp pl
@@ -91,7 +89,7 @@ instance (PlotWithR a) => PlotWithR [a] where
                      cleanUp = mapM_ cleanUp pxs}
 
                                
-test = plotWithR (Points [1,2,3] :+: Points [4,5,6])
+--test = plotWithR (Points [1,2,3] :+: Points [4,5,6])
 
 
 --plotWithR :: V -> IO ()

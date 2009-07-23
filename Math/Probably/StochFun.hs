@@ -15,6 +15,9 @@ newtype StochFun b c = SF { unSF :: (b, [Double]) -> (c,[Double]) }
 sampler :: Sampler a -> StochFun b a
 sampler (Sam sf) = SF $ \(_, dbls) -> sf dbls
 
+condSampler :: (b->Sampler a) -> StochFun b a
+condSampler sflam = SF $ \(x, dbls) -> (unSam (sflam x)) dbls
+
 instance C.Category StochFun where
     id = SF id
     (SF sf1) . (SF sf2) = SF $ \(x,dbls) -> sf1 . sf2 $ (x,dbls)
@@ -27,8 +30,6 @@ instance Arrow StochFun where
 withCount :: StochFun a a -> StochFun (a,Int) (a,Int)
 withCount (SF sf) = SF $ \((x,n),dbls) -> let (x',dbls') = sf (x,dbls) in
                                           ((x',n+1),dbls)
-
-
 
 data Markov b = forall a. Mrkv (StochFun a a) a (a->b) 
 
