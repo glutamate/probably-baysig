@@ -18,14 +18,8 @@ data WithRange a = WithRange Double Double a
 instance Num a => PlotWithR (WithPoints (Sampler a)) where
     getRPlotCmd (WithPoints n sam) = do
       pts <- take n `fmap` runSamplerIO sam
-      r <- (show . idInt . hashUnique) `fmap` newUnique
-      let fnm = "/tmp/bugplot"++r
-      writeFile fnm . unlines $ map (show) pts
-      return $ RPlCmd { 
-                   prePlot = [concat ["dat", r, " <- scan(\"", fnm, "\")"]], 
-                   cleanUp = removeFile fnm,
-                   plotArgs = [Histo $ "dat"++r]
-                      }
+      plotHisto pts
+
 
 instance PlotWithR (WithRange (PDF.PDF Double)) where
     getRPlotCmd (WithRange from to pdf) = do
@@ -42,7 +36,7 @@ instance PlotWithR (WithRange (PDF.PDF Double)) where
 
 test :: IO ()
 test = do --plot (WithPoints 10000 $ gauss 0 1)
-          plot (WithRange (-5) 5 $ PDF.gauss (idDouble 0) 1)
+          plot (WithRange (-5) 5 $ PDF.gauss (0::Double) 1)
 
 
 idDouble :: Double -> Double

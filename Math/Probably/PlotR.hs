@@ -28,7 +28,8 @@ plotLines pls = let tss = [ts | TimeSeries ts <- pls ]
                                    unlines $ map lnsplot lns,
                                    unlines $ map ptplot pts]),
                  (nonempty hss, "hist("++head hss++")"),
-                 (nonempty lns, unlines $ map (lnsOrPnts "plot" ", type=\"l\", xlab=\"xs\", ylab=\"ys\"") lns)]
+                 (nonempty lns, unlines $ map (lnsOrPnts "plot" ", type=\"l\", xlab=\"xs\", ylab=\"ys\"") lns),
+                 (nonempty pts, unlines $ map (lnsOrPnts "plot" ", type=\"p\", xlab=\"xs\", ylab=\"ys\"") lns)]
 
     where lnsplot = lnsOrPnts "lines" ""
           ptplot = lnsOrPnts "points" ""
@@ -69,6 +70,8 @@ instance Real a => PlotWithR (Points a) where
                      prePlot = [],
                      plotArgs = [PLPoints $ zip [0..] $ map realToFrac xs], cleanUp = return () }
 
+infixr 2 :+:
+
 data a :+: b = a :+: b
 
 instance (PlotWithR a, PlotWithR b) => PlotWithR (a :+: b) where
@@ -80,7 +83,7 @@ instance (PlotWithR a, PlotWithR b) => PlotWithR (a :+: b) where
                      plotArgs = plotArgs px++plotArgs py, 
                      cleanUp = cleanUp px >> cleanUp px }
 
-instance (PlotWithR a) => PlotWithR [a] where
+{-instance (PlotWithR a) => PlotWithR [a] where
     getRPlotCmd xs = do
       pxs <- mapM getRPlotCmd xs
       return $ RPlCmd {
@@ -88,9 +91,21 @@ instance (PlotWithR a) => PlotWithR [a] where
                      plotArgs = concatMap plotArgs pxs, 
                      cleanUp = mapM_ cleanUp pxs}
 
-                               
+                               -}
 --test = plotWithR (Points [1,2,3] :+: Points [4,5,6])
 
 
 --plotWithR :: V -> IO ()
 --plotWithR (SigV t1 t2 dt sf) = do
+
+
+plotHisto :: Num a => [a] -> IO RPlotCmd
+plotHisto pts = do
+  r <- (show . idInt . hashUnique) `fmap` newUnique
+  let fnm = "/tmp/bugplot"++r
+  writeFile fnm . unlines $ map (show) pts
+  return $ RPlCmd { 
+                   prePlot = [concat ["dat", r, " <- scan(\"", fnm, "\")"]], 
+                   cleanUp = removeFile fnm,
+                   plotArgs = [Histo $ "dat"++r]
+                      }

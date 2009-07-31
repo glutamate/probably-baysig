@@ -42,6 +42,17 @@ metropolisHastings qPDF qSam p
                       then xstar
                       else xi
 
+
+metropolis :: (a->Sampler a) -> P.PDF a -> StochFun a a
+metropolis qSam p 
+    = let accept xi xstar = min 1 $ (p xstar)/(p xi)
+      in proc xi -> do
+        u <- sampler unitSample -< ()
+        xstar <- condSampler qSam -< xi
+        returnA -< if u < accept xi xstar
+                      then xstar
+                      else xi
+
 samplingImportanceResampling :: Ord a => [(a,Double)] -> Sampler a
 samplingImportanceResampling weightedSamples = do
   let sumWeights = sum $ map snd weightedSamples
@@ -49,6 +60,15 @@ samplingImportanceResampling weightedSamples = do
   u <- unitSample
   return . fst . fromJust $ find ((>=u*sumWeights) . snd) cummWeightedSamples
   
+abcRej :: (th -> Sampler obs) -> (obs -> obs -> Bool) -> obs -> Sampler th -> Sampler th
+abcRej  likelihood accept theData prior = abcrej
+    where abcrej = do
+            suggest <- prior
+            sim <- likelihood suggest
+            if accept sim theData
+               then return suggest
+               else abcrej
+
 
 --bayes :: P.PDF a -> P.PDF a -> StochFun a a
 --bayes prior likelihood = let numerator = prior `mulPdf` likelihood
