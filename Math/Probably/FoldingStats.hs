@@ -18,6 +18,10 @@ instance Applicative (Fold a) where
 	pure x = F (\_ _ -> ()) () (\_ -> x) (\_ _-> ())
 	f <*> g = (uncurry ($)) `fmap` both f g -- :: Fold a (b->c, b) 
 
+instance Bounded Double where
+    minBound = -1e-200
+    maxBound = 1e-200
+
 data P a b = P !a !b
 
 both :: Fold b c -> Fold b c' -> Fold b (c, c')
@@ -98,8 +102,19 @@ minF = F (min) (maxBound) id (min)
 
 --sd=((recip len)*sqrt (len*sq-s*s))
 
-stdDev = pure (/) <*> (sqrt <$> innerDiff) <*> realLengthF
-	where innerDiff = pure (-) <*> (pure (*) <*> realLengthF <*> sumSqrF) <*> (before sumF square)
+--stdDev = pure (/) <*> (sqrt <$> innerDiff) <*> realLengthF
+--	where innerDiff = pure (-) <*> (pure (*) <*> realLengthF <*> sumSqrF) <*> (before sumF square)
+
+varF = (pure (-) <*> sumSqrDivN <*> (square `fmap` meanF))
+
+varPF = (pure (-) <*> (pure (*) <*> (recip  `fmap` realLengthF) <*> sumSqrF) <*> (square `fmap` meanF))
+
+sumSqrDivN = pure (*) <*> ((recip . decr) `fmap` realLengthF) <*> sumSqrF
+
+stdDevF = sqrt `fmap` varF
+stdDevPF = sqrt `fmap` varPF
+
+decr x = x-1
 -- correct?
 meanF :: Fractional a => Fold a a
 meanF = pure (/) <*> sumF <*> realLengthF
