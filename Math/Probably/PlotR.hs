@@ -42,6 +42,9 @@ class PlotWithR a where
 plotWithR :: PlotWithR a => a -> IO ()
 plotWithR pl' = do
   pl <-  getRPlotCmd pl' 
+  plotPlotCmd pl
+
+plotPlotCmd pl = do
   r <- (show. hashUnique) `fmap` newUnique
   --print pl
   let rfile = "/tmp/bugplot"++r++".r"
