@@ -105,14 +105,22 @@ minF = F (min) (maxBound) id (min)
 --stdDev = pure (/) <*> (sqrt <$> innerDiff) <*> realLengthF
 --	where innerDiff = pure (-) <*> (pure (*) <*> realLengthF <*> sumSqrF) <*> (before sumF square)
 
-varF = (pure (-) <*> sumSqrDivN <*> (square `fmap` meanF))
+--varF = (pure (-) <*> sumSqrDivN <*> (square `fmap` meanF))
 
-varPF = (pure (-) <*> (pure (*) <*> (recip  `fmap` realLengthF) <*> sumSqrF) <*> (square `fmap` meanF))
+--varPF = (pure (-) <*> (pure (*) <*> (recip  `fmap` realLengthF) <*> sumSqrF) <*> (square `fmap` meanF))
+--http://en.wikipedia.org/wiki/Standard_deviation#Rapid_calculation_methods
+--stdDevP1 = f <$> nSumSumSqr 
+--    where f ((s0, s1), s2) = (recip s0)*sqrt(s0*s2-s1*s1)
+
+stdDevF = sqrt <$> varF
+stdDevPF = sqrt <$> varPF
+varF = f <$> nSumSumSqr 
+    where f ((s0, s1), s2) = (s0*s2-s1*s1)/(s0*(s0-1))
+varPF = f <$> nSumSumSqr 
+    where f ((s0, s1), s2) = recip (s0*s0)*(s0*s2-s1*s1)
+
 
 sumSqrDivN = pure (*) <*> ((recip . decr) `fmap` realLengthF) <*> sumSqrF
-
-stdDevF = sqrt `fmap` varF
-stdDevPF = sqrt `fmap` varPF
 
 decr x = x-1
 -- correct?
@@ -142,6 +150,10 @@ regressF = post <$> (	 dotProdF `both`
 							 denom = sqrx - square sx/len
 							 slope = nume/denom
 						     in (slope, sy/len - sx*slope/len)
+
+
+nSumSumSqr = (realLengthF `both` sumF `both` (before sumF square))
+
 
 
 --regress = runStat regressF
