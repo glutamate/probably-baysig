@@ -18,9 +18,9 @@ instance Applicative (Fold a) where
 	pure x = F (\_ _ -> ()) () (\_ -> x) (\_ _-> ())
 	f <*> g = (uncurry ($)) `fmap` both f g -- :: Fold a (b->c, b) 
 
-instance Bounded Double where
+{-instance Bounded Double where
     minBound = -1e-200
-    maxBound = 1e-200
+    maxBound = 1e-200 -}
 
 data P a b = P !a !b
 
@@ -75,8 +75,10 @@ runStatU (F f x c _) = c . (foldlU f x)
 sumF :: Num a => Fold a a
 sumF = F (+) 0 id (+)
 
+sumSqrF :: Num a => Fold a a
 sumSqrF = before sumF square
 
+square :: (Num a) => a -> a
 square x = x*x
 
 productF :: Num a => Fold a a
@@ -112,14 +114,18 @@ minF = F (min) (maxBound) id (min)
 --stdDevP1 = f <$> nSumSumSqr 
 --    where f ((s0, s1), s2) = (recip s0)*sqrt(s0*s2-s1*s1)
 
+stdDevF, stdDevPF :: Floating a => Fold a a
 stdDevF = sqrt <$> varF
 stdDevPF = sqrt <$> varPF
+
+varF, varPF :: Fractional a => Fold a a
 varF = f <$> nSumSumSqr 
     where f ((s0, s1), s2) = (s0*s2-s1*s1)/(s0*(s0-1))
 varPF = f <$> nSumSumSqr 
     where f ((s0, s1), s2) = recip (s0*s0)*(s0*s2-s1*s1)
 
 
+sumSqrDivN :: Fractional a => Fold a a
 sumSqrDivN = pure (*) <*> ((recip . decr) `fmap` realLengthF) <*> sumSqrF
 
 decr x = x-1
@@ -152,6 +158,7 @@ regressF = post <$> (	 dotProdF `both`
 						     in (slope, sy/len - sx*slope/len)
 
 
+nSumSumSqr :: Fractional a => Fold a ((a, a), a)
 nSumSumSqr = (realLengthF `both` sumF `both` (before sumF square))
 
 

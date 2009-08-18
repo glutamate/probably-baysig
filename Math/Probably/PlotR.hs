@@ -8,6 +8,8 @@ import Data.List
 import Data.Unique
 import TNUtils
 import Control.Monad.Trans
+import System.IO
+import Control.Monad
 
 data RPlotCmd = RPlCmd {
 --      plotData :: String,
@@ -60,6 +62,26 @@ plotPlotCmd pl = do
   removeFile rfile
   cleanUp pl
   return ()
+
+plotCmdToPng pls = do
+  r <- (show. hashUnique) `fmap` newUnique
+  let rfile = "/tmp/bugplot"++r++".r"
+  h <- openFile rfile WriteMode
+  forM_ pls $ \(nm,pl) -> do
+       let rlines = unlines [
+                           "png(filename=\""++nm++"\")",
+                           unlines $ prePlot pl,
+                           plotLines $ plotArgs pl]
+       hPutStrLn h rlines
+  --putStrLn rlines
+  hClose h
+  system $ "R --vanilla --slave < "++rfile
+  removeFile rfile
+  forM_ pls $ \(nm,pl) -> do
+       cleanUp pl
+
+  return ()
+
 
 plot :: (MonadIO m, PlotWithR p) => p -> m ()
 plot = liftIO . plotWithR
