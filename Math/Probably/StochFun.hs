@@ -1,9 +1,11 @@
-{-# LANGUAGE Arrows, ExistentialQuantification #-}
+{-# LANGUAGE CPP, Arrows, ExistentialQuantification #-}
 
 module Math.Probably.StochFun where
 
 import System.Random.Mersenne
+-- #if __GLASGOW_HASKELL__ >699
 import qualified Control.Category as C
+-- #endif
 import Control.Arrow
 
 import Math.Probably.Sampler
@@ -17,15 +19,23 @@ sampler (Sam sf) = SF $ \(_, dbls) -> sf dbls
 
 condSampler :: (b->Sampler a) -> StochFun b a
 condSampler sflam = SF $ \(x, dbls) -> (unSam (sflam x)) dbls
-
+#if __GLASGOW_HASKELL__ > 699 
 instance C.Category StochFun where
     id = SF id
     (SF sf1) . (SF sf2) = SF $ \(x,dbls) -> sf1 . sf2 $ (x,dbls)
-
+#warning __GLASGOW_HASKELL__
 instance Arrow StochFun where
     arr f = SF $ \(x,dbls) -> (f x, dbls)
     first (SF sf) = SF $ \((x,y),dbls) -> let (x',dbls') = sf (x,dbls) in
                                           ((x',y),dbls)
+#else
+{-instance Arrow StochFun where
+    arr f = SF $ \(x,dbls) -> (f x, dbls)
+    first (SF sf) = SF $ \((x,y),dbls) -> let (x',dbls') = sf (x,dbls) in
+                                          ((x',y),dbls)
+--    (SF sf1) >>> (SF sf2) = SF $ \(x,dbls) -> sf2 . sf1 $ (x,dbls)
+-}
+#endif 
 
 withCount :: StochFun a a -> StochFun (a,Int) (a,Int)
 withCount (SF sf) = SF $ \((x,n),dbls) -> let (x',dbls') = sf (x,dbls) in
@@ -44,7 +54,7 @@ bothMv (Mrkv (SF sf1) x1 c1) (Mrkv (SF sf2) x2 c2) =
                                          in ((x',y'), dbls'')
 
 instance Applicative Markov where
-    pure x = Mrkv C.id () $ const x 
+    pure x = Mrkv (SF id) () $ const x 
     m1 <*> m2 = uncurry ($) <$> bothMv m1 m2
 
 mvSampler :: Sampler a -> Markov a
