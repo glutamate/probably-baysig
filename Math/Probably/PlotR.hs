@@ -10,6 +10,7 @@ import TNUtils
 import Control.Monad.Trans
 import System.IO
 import Control.Monad
+import Data.Maybe
 
 data RPlotCmd = RPlCmd {
 --      plotData :: String,
@@ -20,21 +21,21 @@ data RPlotCmd = RPlCmd {
 
 data PlotLine = TimeSeries String | Histo String | PLPoints [(Double,Double)] | PLLines [(Double,Double)]
 
-plotLines :: [PlotLine] -> String
+plotLines :: [PlotLine] -> Maybe String
 plotLines pls = let tss = [ts | TimeSeries ts <- pls ]
                     pts = [ts | PLPoints ts <- pls ]
                     lns = [ts | PLLines ts <- pls ]
                     hss = [ts | Histo ts <- pls ] in
                 cond 
-                [(nonempty tss, unlines ["ts.plot("++(intercalate "," tss)++")",
+                [(nonempty tss, Just $ unlines ["ts.plot("++(intercalate "," tss)++")",
                                    unlines $ map lnsplot lns,
                                    unlines $ map ptplot pts]),
-                 (nonempty hss, "hist("++head hss++")"),
-                 (nonempty lns, unlines $ map (lnsOrPnts "plot" ", type=\"l\", xlab=\"xs\", ylab=\"ys\"") lns),
-                 (nonempty pts, unlines $ map (lnsOrPnts "plot" ", type=\"p\", xlab=\"xs\", ylab=\"ys\"") lns)]
+                 (nonempty hss, Just $ "hist("++head hss++")"),
+                 (nonempty lns, Just $ unlines $ map (lnsOrPnts "plot" ", type=\"l\", xlab=\"xs\", ylab=\"ys\"") lns),
+                 (nonempty pts, Just $ unlines $ map (lnsOrPnts "plot" ", type=\"p\", xlab=\"xs\", ylab=\"ys\"") lns)] Nothing
 
     where lnsplot = lnsOrPnts "lines" ""
-          ptplot = lnsOrPnts "points" ""
+          ptplot = lnsOrPnts "points" ", col=\"blue\", pch=16"
           lnsOrPnts cmd extra xsys  = let (xs,ys) = unzip xsys in 
                                cmd++"(c("++(intercalate "," $ map show xs)++"), c("++(intercalate "," $ map show ys)++")"++extra++")"
 
@@ -50,10 +51,12 @@ plotPlotCmd pl = do
   r <- (show. hashUnique) `fmap` newUnique
   --print pl
   let rfile = "/tmp/bugplot"++r++".r"
+  let plines = plotLines $ plotArgs pl
+  when (isNothing plines) $ fail $ "plotPlotCmd: noghtin to plot!"
   let rlines = unlines [
                  "x11(width=10,height=7)",
                  unlines $ prePlot pl,
-                 plotLines $ plotArgs pl,
+                 fromJust plines,
                  "z<-locator(1)",
                  "q()"]
   writeFile rfile $ rlines
@@ -63,24 +66,25 @@ plotPlotCmd pl = do
   cleanUp pl
   return ()
 
-plotCmdToPng pls = do
-  r <- (show. hashUnique) `fmap` newUnique
-  let rfile = "/tmp/bugplot"++r++".r"
-  h <- openFile rfile WriteMode
-  forM_ pls $ \(nm,pl) -> do
-       let rlines = unlines [
+
+plotCmdToPng pls' = do
+  forM_ (inChunksOf 50 pls') $ \pls -> do
+      r <- (show. hashUnique) `fmap` newUnique
+      let rfile = "/tmp/bugplot"++r++".r"
+      h <- openFile rfile WriteMode
+      forM_ pls $ \(nm,pl) -> do
+         let plines = plotLines $ plotArgs pl
+         when (isNothing plines) $ fail $ "plotCmdToPng: noghtin to plot!"
+         let rlines = unlines [
                            "png(filename=\""++nm++"\")",
                            unlines $ prePlot pl,
-                           plotLines $ plotArgs pl]
-       hPutStrLn h rlines
-  --putStrLn rlines
-  hClose h
-  system $ "R --vanilla --slave < "++rfile
-  removeFile rfile
-  forM_ pls $ \(nm,pl) -> do
-       cleanUp pl
-
-  return ()
+                           fromJust plines]
+         hPutStrLn h rlines
+      --putStrLn rlines
+      hClose h
+      system $ "R --vanilla --slave < "++rfile
+      removeFile rfile
+      forM_ pls $ \(nm,pl) ->cleanUp pl
 
 
 plot :: (MonadIO m, PlotWithR p) => p -> m ()

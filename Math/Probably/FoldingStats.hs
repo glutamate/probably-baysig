@@ -133,6 +133,10 @@ decr x = x-1
 meanF :: Fractional a => Fold a a
 meanF = pure (/) <*> sumF <*> realLengthF
 
+meanSDF :: Floating a => Fold a (a,a)
+meanSDF = f <$> nSumSumSqr 
+    where f ((s0, s1), s2) = (s1/s0, sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))
+
 --mean :: Fractional a => [a] -> a
 --mean = cfoldl' meanF
 
