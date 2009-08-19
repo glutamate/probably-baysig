@@ -3,9 +3,9 @@
 module Math.Probably.StochFun where
 
 import System.Random.Mersenne
--- #if __GLASGOW_HASKELL__ >699
+#if __GLASGOW_HASKELL__ > 609
 import qualified Control.Category as C
--- #endif
+#endif
 import Control.Arrow
 
 import Math.Probably.Sampler
@@ -19,22 +19,22 @@ sampler (Sam sf) = SF $ \(_, dbls) -> sf dbls
 
 condSampler :: (b->Sampler a) -> StochFun b a
 condSampler sflam = SF $ \(x, dbls) -> (unSam (sflam x)) dbls
-#if __GLASGOW_HASKELL__ > 699 
+
+#if __GLASGOW_HASKELL__ > 609
 instance C.Category StochFun where
     id = SF id
     (SF sf1) . (SF sf2) = SF $ \(x,dbls) -> sf1 . sf2 $ (x,dbls)
-#warning __GLASGOW_HASKELL__
 instance Arrow StochFun where
     arr f = SF $ \(x,dbls) -> (f x, dbls)
     first (SF sf) = SF $ \((x,y),dbls) -> let (x',dbls') = sf (x,dbls) in
                                           ((x',y),dbls)
 #else
-{-instance Arrow StochFun where
+instance Arrow StochFun where
     arr f = SF $ \(x,dbls) -> (f x, dbls)
     first (SF sf) = SF $ \((x,y),dbls) -> let (x',dbls') = sf (x,dbls) in
                                           ((x',y),dbls)
---    (SF sf1) >>> (SF sf2) = SF $ \(x,dbls) -> sf2 . sf1 $ (x,dbls)
--}
+    (SF sf1) >>> (SF sf2) = SF $ \(x,dbls) -> sf2 . sf1 $ (x,dbls)
+
 #endif 
 
 withCount :: StochFun a a -> StochFun (a,Int) (a,Int)
