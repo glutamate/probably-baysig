@@ -83,7 +83,7 @@ plotCmdToPng pls' = do
       --putStrLn rlines
       hClose h
       system $ "R --vanilla --slave < "++rfile
-      removeFile rfile
+      --removeFile rfile
       forM_ pls $ \(nm,pl) ->cleanUp pl
 
 
