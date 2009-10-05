@@ -96,6 +96,7 @@ runSamplerIO sf = do rnds <- randoms =<< getStdGen
                      return $ runSampler rnds sf
 
 
+
 {-
 expectation :: Fractional a =>  Int -> Sampler a -> IO a
 expectation n sf = 
@@ -133,3 +134,14 @@ main = do u <- expectSD 1000000 $ gauss 0 1
           print u
 
 -}
+
+
+--poisson ::  ::  Double -> [Double] -> IO Double
+poisson rate =  (\u-> negate $ (log(1-u))/rate) `fmap` unitSample
+poissonMany :: Double -> Double -> Sampler [Double]
+poissonMany rate tmax = aux 0 
+    where aux last = do
+            next <- (+last) `fmap` poisson rate
+            if next > tmax
+               then return []
+               else liftM2 (:) (return next) $ aux next
