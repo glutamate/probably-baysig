@@ -13,6 +13,7 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.PDF,
 		     Math.Probably.StochFun,
 		     Math.Probably.Visualise,
-		     Math.Probably.MCMC
+		     Math.Probably.MCMC,
+		     Math.Probably.KMeans
 			
 Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, random, directory, process, tnutils, mtl
