@@ -99,6 +99,11 @@ maxF = F (max) (minBound) id (max)
 minF :: (Num a, Ord a, Bounded a) => Fold a a
 minF = F (min) (maxBound) id (min)
 
+minLocF :: (Num a, Ord a, Bounded a) => Fold a (a, Int)
+minLocF = F (\(minv, minn, curn) v -> if v < minv
+                                         then (v,curn, curn+1)
+                                         else (minv, minn, curn+1)) (maxBound, -1, 0) (\(x,y,z)->(x,y)) (undefined)
+
 --x = -Infinity
 --And, the moment we've all been waiting for, combining basic folds to get the mean of a list:
 
