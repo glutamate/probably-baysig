@@ -8,12 +8,14 @@ Maintainer:          tanielsen@gmail.com
 build-type:          Simple
 Exposed-modules:     Math.Probably.Sampler,
                      Math.Probably.FoldingStats,
+                     Math.Probably.Student,
                      Math.Probably.PlotR,
                      Math.Probably.ChunkedArray,
 		     Math.Probably.PDF,
 		     Math.Probably.StochFun,
 		     Math.Probably.Visualise,
 		     Math.Probably.MCMC,
-		     Math.Probably.KMeans
+		     Math.Probably.KMeans,
+		     Math.Probably.GlobalRandoms
 			
 Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, random, directory, process, tnutils, mtl

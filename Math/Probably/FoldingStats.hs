@@ -142,6 +142,11 @@ meanSDF :: Floating a => Fold a (a,a)
 meanSDF = f <$> nSumSumSqr 
     where f ((s0, s1), s2) = (s1/s0, sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))
 
+meanSDNF :: Floating a => Fold a (a,a,a)
+meanSDNF = f <$> nSumSumSqr 
+    where f ((s0, s1), s2) = (s1/s0, sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)), s0)
+
+
 meanSEMF :: Floating a => Fold a (a,a)
 meanSEMF = f <$> nSumSumSqr 
     where f ((s0, s1), s2) = (s1/s0, (sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))/sqrt s0)
