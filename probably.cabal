@@ -1,5 +1,5 @@
 Name:                probably
-Version:             0.1
+Version:             0.1.1
 Description:         Probability and Statistics
 License:             BSD3
 License-file:        LICENSE
@@ -16,6 +16,9 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.Visualise,
 		     Math.Probably.MCMC,
 		     Math.Probably.KMeans,
-		     Math.Probably.GlobalRandoms
+		     Math.Probably.GlobalRandoms,
+		     Math.Probably.FitFun
+
 			
-Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, random, directory, process, tnutils, mtl
+Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, 
+                     random, directory, process, tnutils, mtl, fad

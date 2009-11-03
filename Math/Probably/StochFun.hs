@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, Arrows, ExistentialQuantification #-}
+{-# LANGUAGE CPP, Arrows, ExistentialQuantification, Rank2Types #-}
 
 module Math.Probably.StochFun where
 
@@ -11,6 +11,8 @@ import Control.Arrow
 import Math.Probably.Sampler
 import Math.Probably.FoldingStats
 import Control.Applicative
+
+import Numeric.FAD
 
 newtype StochFun b c = SF { unSF :: (b, [Double]) -> (c,[Double]) }
 
@@ -77,3 +79,33 @@ means = progressively meanF
 
 
 --withCount xs = scanl (\(sm, len) x ->(sm+x, len+1)) (0,(0::Int)) xs
+
+
+
+
+fit :: (Ord a, Floating a) => (forall tag. b -> [Dual tag a] -> Dual tag a) -> [(b,a)] -> [a] -> [[a]]
+fit g pts p0 = let ss args = sum $ map (\(t,y)-> (g t args - lift y)**2) pts
+               in argminNaiveGradient ss p0
+
+--expDecay :: (Floating a) => a -> [a] -> a
+expDecay1 [t, a, tau, s0]  = a*exp(-t*tau)+s0
+--expDecay :: (Fractional a, Ord a, Floating a) =>  Double -> (forall tag. [Dual tag a] -> Dual tag a)
+expDecay :: (Floating b, Real a) => a -> [b] -> b
+expDecay t [a, tau, s0]  = a*exp(-(realToFrac t)/tau)+s0
+gaussFun :: (Floating b, Real a) => a -> [b] -> b
+gaussFun x [mean, sd] = let factor = (recip $ sd*sqrt (2*pi))
+                        in factor * (exp . negate $ ((((realToFrac x)-mean)**2)/(2*sd**2)))
+gaussFunOff :: (Floating b, Real a) => a -> [b] -> b
+gaussFunOff x [mean, sd, amp, offset] = let factor = (recip $ sd*sqrt (2*pi))
+                                        in amp* factor * (exp . negate $ ((((realToFrac x)-mean)**2)/(2*sd**2))) + offset
+
+cauchyFun :: (Floating b, Real a) => a -> [b] -> b
+cauchyFun x [x0, gamma] = let diff = realToFrac x - x0
+                          in (gamma/pi) * recip (diff*diff+gamma*gamma)
+
+fitFun :: [a] -> (b -> [a] -> a) -> (b->a)
+
+fitFun pars f = \t->f t pars 
+
+--pars= (!!201) $ fit expDecay (pts) [100, 2, 20] in
+--            FunSeg 0 30 $ fitFun pars expDecay
