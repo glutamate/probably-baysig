@@ -16,8 +16,7 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.Visualise,
 		     Math.Probably.MCMC,
 		     Math.Probably.KMeans,
-		     Math.Probably.GlobalRandoms,
-		     Math.Probably.FitFun
+		     Math.Probably.GlobalRandoms
 
 			
 Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, 
