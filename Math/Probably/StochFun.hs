@@ -64,7 +64,7 @@ mvSampler sam = Mrkv (sampler sam) undefined id
 
 runMarkov ::  [Double] -> Markov a -> [a]
 runMarkov dbls m@(Mrkv (SF sf) x c) = let (x', dbls') = sf (x,dbls)
-                                      in c x:runMarkov dbls' m
+                                      in c x':runMarkov dbls' m
 
 runMarkovIO :: Markov a -> IO [a]
 runMarkovIO m@(Mrkv (SF sf) x c)  = do 
