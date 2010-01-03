@@ -9,6 +9,8 @@ import Control.Arrow
 import Data.List
 import Data.Maybe
 import Data.Ord
+import Math.Probably.FoldingStats
+import TNUtils
 
 --http://videolectures.net/mlss08au_freitas_asm/
 rejection :: Double -> P.PDF a -> Sampler a -> P.PDF a -> Sampler a
@@ -68,6 +70,31 @@ abcRej  likelihood accept theData prior = abcrej
             if accept sim theData
                then return suggest
                else abcrej
+
+--parameter 
+bayes :: Ord a => Int -> P.PDF a -> Sampler a -> IO (Sampler a)
+bayes nsam likelihood prior = do
+  let postsam = do
+        theta <- prior
+        let lh_theta = likelihood theta
+        return (theta, lh_theta)
+  weightedSamples <- take nsam `fmap` runSamplerIO postsam
+  return $ samplingImportanceResampling weightedSamples
+
+bayesTest = 
+  let xs = [1, 2, 3]
+      ys = [2, 3.9, 6.1]
+      lh (a, b, sd) = product $ map (\(x,y)-> P.gauss (a*x+b) sd y) $ zip xs ys
+      prior = do a <- uniform (-10) 10
+                 b <- uniform (-10) 10
+                 sd <- uniform 0 5
+                 return (a,b,sd)
+  in do bsam <- bayes 10000 lh prior
+        ps <- take 10000 `fmap` runSamplerIO bsam
+        print $ meanSDF `runStat` (map fst3 ps)
+        print $ meanSDF `runStat` (map snd3 ps)
+        print $ regressF `runStat`  zip xs ys
+
 
 
 --bayes :: P.PDF a -> P.PDF a -> StochFun a a
