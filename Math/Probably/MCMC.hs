@@ -56,11 +56,12 @@ metropolis qSam p
                       else xi
 
 samplingImportanceResampling :: Ord a => [(a,Double)] -> Sampler a
-samplingImportanceResampling weightedSamples = do
+samplingImportanceResampling weightedSamples = 
   let sumWeights = sum $ map snd weightedSamples
-  let cummWeightedSamples = scanl (\(_,csum) (x,w) -> (x,csum+w)) (undefined,0) $ sortBy (comparing fst) weightedSamples
-  u <- unitSample
-  return . fst . fromJust $ find ((>=u*sumWeights) . snd) cummWeightedSamples
+      cummWeightedSamples = scanl (\(_,csum) (x,w) -> (x,csum+w)) (undefined,0) $ sortBy (comparing fst) weightedSamples
+  in do
+    u <- unitSample
+    return . fst . fromJust $ find ((>=u*sumWeights) . snd) cummWeightedSamples
   
 abcRej :: (th -> Sampler obs) -> (obs -> obs -> Bool) -> obs -> Sampler th -> Sampler th
 abcRej  likelihood accept theData prior = abcrej
@@ -81,16 +82,19 @@ bayes nsam likelihood prior = do
   weightedSamples <- take nsam `fmap` runSamplerIO postsam
   return $ samplingImportanceResampling weightedSamples
 
-bayesTest = 
+manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
+manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
+
+main = 
   let xs = [1, 2, 3]
       ys = [2, 3.9, 6.1]
-      lh (a, b, sd) = product $ map (\(x,y)-> P.gauss (a*x+b) sd y) $ zip xs ys
-      prior = do a <- uniform (-10) 10
-                 b <- uniform (-10) 10
+      lh (a, b, sd) x = P.gauss (a*x+b) sd
+      prior = do a <- gauss (3) 0.5
+                 b <- gauss (0) 0.5
                  sd <- uniform 0 5
                  return (a,b,sd)
-  in do bsam <- bayes 10000 lh prior
-        ps <- take 10000 `fmap` runSamplerIO bsam
+  in do bsam <- bayes 10000 (manyLike lh $ zip xs ys) prior
+        ps <- take 1000 `fmap` runSamplerIO bsam
         print $ meanSDF `runStat` (map fst3 ps)
         print $ meanSDF `runStat` (map snd3 ps)
         print $ regressF `runStat`  zip xs ys
