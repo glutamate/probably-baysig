@@ -11,6 +11,7 @@ import Data.Maybe
 import Data.Ord
 import Math.Probably.FoldingStats
 import TNUtils
+import Control.Monad
 
 --http://videolectures.net/mlss08au_freitas_asm/
 rejection :: Double -> P.PDF a -> Sampler a -> P.PDF a -> Sampler a
@@ -84,6 +85,9 @@ bayes nsam likelihood prior = do
 
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
+
+times :: Monad m => Int -> m a -> m [a]
+times n ma = forM [1..n] $ const ma
 
 main = 
   let xs = [1, 2, 3]

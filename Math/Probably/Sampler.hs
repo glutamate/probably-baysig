@@ -7,8 +7,11 @@ import Control.Monad
 import Control.Applicative
 import Data.Array.Vector
 import qualified Math.Probably.PDF as PDF
+import qualified System.Random as SR
+import Data.List
 
 newtype Sampler a = Sam {unSam :: [Double] -> (a, [Double]) }
+
 
 unitSample :: Sampler Double
 unitSample = Sam $ \(r:rs) -> (r,rs)
@@ -73,9 +76,15 @@ bernoulli :: Double -> Sampler Bool
 bernoulli p = (<p) `fmap` unitSample 
 
 
+
 oneOf :: [a] -> Sampler a
-oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs -1)
+oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
               return $ xs !! idx
+
+{-main = do 
+  rnds <- take 1000 `fmap` runSamplerSysRan (oneOf [1,2,3])
+  let diff = sort $ nub rnds
+  print $ map (\x->(x, length $ filter (==x) rnds )) $ diff -}
 
 bayesRejection :: (PDF.PDF a) -> Double -> Sampler a -> Sampler a
 bayesRejection p c q = bayes
@@ -85,9 +94,6 @@ bayesRejection p c q = bayes
                         then return x
                         else bayes      
 
---bayes2 :: Sampler a -> (a->Sampler a) -> Sampler a
---bayes2 = (>>=)
-
 runSampler :: [Double] -> Sampler a -> [a]
 runSampler rs sf = let (x,rs') = (unSam sf) rs in x:runSampler rs' sf
 
@@ -95,8 +101,10 @@ runSamplerIO :: Sampler a -> IO [a]
 runSamplerIO sf = do rnds <- randoms =<< getStdGen 
                      return $ runSampler rnds sf
 
-
-
+runSamplerSysRan :: Sampler a -> IO [a]
+runSamplerSysRan sf = do 
+  rnds <- SR.randoms `fmap` SR.getStdGen
+  return $ runSampler rnds sf
 {-
 expectation :: Fractional a =>  Int -> Sampler a -> IO a
 expectation n sf = 
