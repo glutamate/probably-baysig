@@ -22,7 +22,7 @@ kprob z =
                        1 - w * (exp(c1*v)+exp(c3*v))/u
         | u <6.8116 -> let v = u*u
                            maxj = max 1 $ round (3/u)
-                           rf j = if j<maxj
+                           rf j = if j<=maxj
                                      then exp((fj!!j)*v)
                                      else 0
                        in (2*) . sum $ map rf [0..3]
