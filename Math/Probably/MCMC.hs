@@ -83,13 +83,16 @@ bayes nsam likelihood prior = do
   weightedSamples <- take nsam `fmap` runSamplerIO postsam
   return $ samplingImportanceResampling weightedSamples
 
+bayesMet :: (a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun a a
+bayesMet proposal lh prior = metropolis proposal (\x-> lh x * prior x)
+
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
 
 times :: Monad m => Int -> m a -> m [a]
 times n ma = forM [1..n] $ const ma
 
-main = 
+test = 
   let xs = [1, 2, 3]
       ys = [2, 3.9, 6.1]
       lh (a, b, sd) x = P.gauss (a*x+b) sd
