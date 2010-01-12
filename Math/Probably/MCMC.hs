@@ -12,6 +12,7 @@ import Data.Ord
 import Math.Probably.FoldingStats
 import TNUtils
 import Control.Monad
+import Debug.Trace
 
 --http://videolectures.net/mlss08au_freitas_asm/
 rejection :: Double -> P.PDF a -> Sampler a -> P.PDF a -> Sampler a
@@ -56,6 +57,22 @@ metropolis qSam p
                       then xstar
                       else xi
 
+traceIt :: Show a => a -> a
+traceIt x = trace (show x) x
+
+
+metropolisLog :: Show a => (a->Sampler a) -> P.PDF a -> StochFun a a
+metropolisLog qSam p 
+    = let accept xi xstar = let pstar = p xstar
+                                pi = p xi
+                            in {-trace (show (xi, xstar )) $ traceIt $-} min 1 $ exp (pstar - pi)
+      in proc xi -> do
+        u <- sampler unitSample -< ()
+        xstar <- condSampler qSam -< xi
+        returnA -< if u < accept xi xstar
+                      then xstar
+                      else xi
+
 samplingImportanceResampling :: Ord a => [(a,Double)] -> Sampler a
 samplingImportanceResampling weightedSamples = 
   let sumWeights = sum $ map snd weightedSamples
@@ -85,6 +102,9 @@ bayes nsam likelihood prior = do
 
 bayesMet :: (a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun a a
 bayesMet proposal lh prior = metropolis proposal (\x-> lh x * prior x)
+
+bayesMetLog :: Show a => (a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun a a
+bayesMetLog proposal lh prior = metropolisLog proposal (\x-> lh x + prior x)
 
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys

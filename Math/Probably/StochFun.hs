@@ -29,19 +29,19 @@ instance C.Category StochFun where
 instance Arrow StochFun where
     arr f = SF $ \(x,dbls) -> (f x, dbls)
     first (SF sf) = SF $ \((x,y),dbls) -> let (x',dbls') = sf (x,dbls) in
-                                          ((x',y),dbls)
+                                          ((x',y),dbls')
 #else
 instance Arrow StochFun where
     arr f = SF $ \(x,dbls) -> (f x, dbls)
     first (SF sf) = SF $ \((x,y),dbls) -> let (x',dbls') = sf (x,dbls) in
-                                          ((x',y),dbls)
+                                          ((x',y),dbls')
     (SF sf1) >>> (SF sf2) = SF $ \(x,dbls) -> sf2 . sf1 $ (x,dbls)
 
 #endif 
 
 withCount :: StochFun a a -> StochFun (a,Int) (a,Int)
 withCount (SF sf) = SF $ \((x,n),dbls) -> let (x',dbls') = sf (x,dbls) in
-                                          ((x',n+1),dbls)
+                                          ((x',n+1),dbls')
 
 data Markov b = forall a. Mrkv (StochFun a a) a (a->b) 
 
@@ -63,8 +63,9 @@ mvSampler :: Sampler a -> Markov a
 mvSampler sam = Mrkv (sampler sam) undefined id
 
 runMarkov ::  [Double] -> Markov a -> [a]
-runMarkov dbls m@(Mrkv (SF sf) x c) = let (x', dbls') = sf (x,dbls)
-                                      in c x':runMarkov dbls' m
+runMarkov dbls m@(Mrkv (SF sf) x c) = map c $ run dbls sf x
+    where run dbs f y = let (y', dbs') = f (y, dbs)
+                         in y' : run dbs' f y'
 
 runMarkovIO :: Markov a -> IO [a]
 runMarkovIO m@(Mrkv (SF sf) x c)  = do 
