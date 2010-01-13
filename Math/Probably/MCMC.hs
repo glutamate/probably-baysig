@@ -61,7 +61,7 @@ traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
 
 
-metropolisLog :: Show a => (a->Sampler a) -> P.PDF a -> StochFun a a
+metropolisLog ::(a->Sampler a) -> P.PDF a -> StochFun a a
 metropolisLog qSam p 
     = let accept xi xstar = let pstar = p xstar
                                 pi = p xi
@@ -103,8 +103,8 @@ bayes nsam likelihood prior = do
 bayesMet :: (a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun a a
 bayesMet proposal lh prior = metropolis proposal (\x-> lh x * prior x)
 
-bayesMetLog :: Show a => (a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun a a
-bayesMetLog proposal lh prior = metropolisLog proposal (\x-> lh x + prior x)
+bayesMetLog :: Show a => (a->Sampler a) -> [P.PDF a] -> StochFun a a
+bayesMetLog proposal pdfs = metropolisLog proposal $ (\x-> sum $ map ($x) pdfs)
 
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
