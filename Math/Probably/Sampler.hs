@@ -71,6 +71,21 @@ gauss m sd =
     do (u1,u2) <- (mapPair realToFrac) `fmap` joint unitSample unitSample
        return $ sqrt(-2*log(u1))*cos(2*pi*u2)*sd+m
 
+gaussMany :: Floating b => [(b,b)] -> Sampler [b]
+gaussMany means_sds = do gus <- gaussManyUnit (length means_sds)
+                         return $ map f $ zip gus means_sds
+    where f (gu, (mean, sd)) = gu*sd+mean
+
+gaussManyUnit :: Floating b => Int -> Sampler [b]
+gaussManyUnit 0 = return []
+gaussManyUnit n | odd n = liftM2 (:) (gauss 0 1) (gaussManyUnit (n-1))
+                | otherwise = do us <- forM [1..n] $ const $ unitSample
+                                 return $ gaussTwoAtATime $ map realToFrac us
+                                 
+
+gaussTwoAtATime :: Floating a =>  [a] -> [a]
+gaussTwoAtATime (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATime rest
+gaussTwoAtATime _ = []
 
 bernoulli :: Double -> Sampler Bool
 bernoulli p = (<p) `fmap` unitSample 
