@@ -189,3 +189,8 @@ poissonMany rate tmax = aux 0
             if next > tmax
                then return []
                else liftM2 (:) (return next) $ aux next
+
+binomial n p = do
+  bools <- forM [1..n] $ const $ fmap (<p) unitSample
+  return $ length $ [t | t@True <- bools]
+  
