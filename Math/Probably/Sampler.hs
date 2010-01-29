@@ -84,8 +84,8 @@ gaussMany means_sds = do gus <- gaussManyUnit (length means_sds)
 
 gaussManyD :: [(Double,Double)] -> Sampler [Double]
 gaussManyD means_sds = do gus <- gaussManyUnitD (length means_sds)
-                          return $ map f $ zip gus means_sds
-    where f (gu, (mean, sd)) = gu*sd+mean
+                          return $ zipWith f gus means_sds
+    where f gu (mean, sd) = gu*sd+mean
 
 gaussManyUnit :: Floating b => Int -> Sampler [b]
 gaussManyUnit 0 = return []
@@ -190,6 +190,7 @@ poissonMany rate tmax = aux 0
                then return []
                else liftM2 (:) (return next) $ aux next
 
+binomial :: Int -> Double -> Sampler Int
 binomial n p = do
   bools <- forM [1..n] $ const $ fmap (<p) unitSample
   return $ length $ [t | t@True <- bools]

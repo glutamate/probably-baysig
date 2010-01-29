@@ -61,17 +61,16 @@ traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
 
 
-metropolisLog ::(a->Sampler a) -> P.PDF a -> StochFun a a
+metropolisLog ::(a->Sampler a) -> P.PDF a -> StochFun (a,Double) (a,Double)
 metropolisLog qSam p 
-    = let accept xi xstar = let pstar = p xstar
-                                pi = p xi
-                            in {-trace (show (xi, xstar )) $ traceIt $-} min 1 $ exp (pstar - pi)
-      in proc xi -> do
+    = let accept pi pstar =  min 1 $ exp (pstar - pi)
+      in proc (xi, pi) -> do
         u <- sampler unitSample -< ()
         xstar <- condSampler qSam -< xi
-        returnA -< if u < accept xi xstar
-                      then xstar
-                      else xi
+        let pstar = p xstar
+        returnA -< if u < accept pi pstar
+                      then (xstar, pstar)
+                      else (xi, pi)
 
 samplingImportanceResampling :: Ord a => [(a,Double)] -> Sampler a
 samplingImportanceResampling weightedSamples = 
@@ -103,8 +102,11 @@ bayes nsam likelihood prior = do
 bayesMet :: (a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun a a
 bayesMet proposal lh prior = metropolis proposal (\x-> lh x * prior x)
 
-bayesMetLog :: Show a => (a->Sampler a) -> [P.PDF a] -> StochFun a a
-bayesMetLog proposal pdfs = metropolisLog proposal $ (\x-> sum $ map ($x) pdfs)
+bayesMetLog :: Show a => (a->Sampler a) -> [P.PDF a] -> a -> Markov a
+bayesMetLog proposal pdfs inits = 
+    let p x =  sum $ map ($x) pdfs
+        p0 = p inits
+    in Mrkv (metropolisLog proposal p) (inits, p0) (fst)
 
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
