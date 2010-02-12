@@ -4,6 +4,7 @@ import System.Random.Mersenne
 import Data.IORef
 import System.IO.Unsafe
 import Math.Probably.Sampler
+import qualified System.Random as SR
 
 {-# NOINLINE globalRandoms #-}
 globalRandoms :: IORef [Double]
@@ -32,6 +33,15 @@ withGlobalRnds f = unsafePerformIO $ do
 sampleN :: Int -> Sampler a -> [a]
 sampleN n sf = 
   withGlobalRnds (\rs -> sam n rs sf [])
+    where sam 0 rs _ xs          = (xs, rs)
+          sam n rs s@(Sam sf) xs = let (x, rs') = sf rs 
+                                   in sam (n-1) rs' s (x:xs)
+
+sampleNsr :: Int -> Sampler a -> [a]
+sampleNsr n sf = 
+    unsafePerformIO $ do
+      rnds <- fmap SR.randoms SR.getStdGen 
+      return $ fst $ sam n rnds sf []
     where sam 0 rs _ xs          = (xs, rs)
           sam n rs s@(Sam sf) xs = let (x, rs') = sf rs 
                                    in sam (n-1) rs' s (x:xs)

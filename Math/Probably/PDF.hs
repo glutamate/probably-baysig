@@ -15,6 +15,7 @@ gauss mean sd = \x->realToFrac $ recip(sd*sqrt(2*pi))*exp(-(x-mean)**2/(2*sd*sd)
 gaussD :: Double -> Double-> PDF Double
 gaussD mean sd = \x->recip(sd*sqrt(2*pi))*exp(-(x-mean)**2/(2*sd*sd))
 
+{-# SPECIALIZE gauss :: Double -> Double-> PDF Double #-}
 
 --this is a Prob. Mass function, not density.
 binomial :: Int -> Double -> PDF Int
