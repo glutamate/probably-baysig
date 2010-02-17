@@ -22,6 +22,10 @@ sampler (Sam sf) = SF $ \(_, dbls) -> sf dbls
 condSampler :: (b->Sampler a) -> StochFun b a
 condSampler sflam = SF $ \(x, dbls) -> (unSam (sflam x)) dbls
 
+uncondSampler :: StochFun b a -> (b->Sampler a) 
+uncondSampler (SF sf) = \x -> Sam $ \dbls-> sf (x,dbls)
+
+
 #if __GLASGOW_HASKELL__ > 609
 instance C.Category StochFun where
     id = SF id

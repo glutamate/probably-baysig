@@ -70,8 +70,11 @@ runStatU (F f x c _) = c . (foldlU f x)
 runStatOnMany :: Fold b c -> [[b]] -> [c]
 runStatOnMany _ [] = []
 runStatOnMany (F f x c _) xss = map c $ foldl' f' (replicate n x) xss
-    where n = length $ head xss
+    where n  = length xss
           f' = zipWith f
+
+--seqit x = x `seq` x
+                     
 
 --runStatWithFold folder (F f x c _) = c . (folder f x) 
 
