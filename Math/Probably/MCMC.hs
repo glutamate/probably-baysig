@@ -57,6 +57,21 @@ metropolis qSam p
                       then xstar
                       else xi
 
+metSample1 :: (a->Sampler a) -> P.PDF a -> a -> Sampler a
+metSample1 prop pdf = uncondSampler $ metropolisLn prop pdf
+
+
+metropolisLn :: (a->Sampler a) -> P.PDF a -> StochFun a a
+metropolisLn qSam p 
+    = let accept xi xstar = min 1 $ exp $ (p xstar) - (p xi)
+      in proc xi -> do
+        u <- sampler unitSample -< ()
+        xstar <- condSampler qSam -< xi
+        returnA -< if u < accept xi xstar
+                      then xstar
+                      else xi
+
+
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
 
