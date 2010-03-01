@@ -90,10 +90,10 @@ sumSqrF = before sumF square
 square :: (Num a) => a -> a
 square x = x*x
 
-jumpFreqF :: Eq a => Fold a Double
-jumpFreqF = F f ini c comb
+jumpFreqByF :: (a->a->Bool) -> Fold a Double
+jumpFreqByF p = F f ini c comb
     where f (Nothing, countj , total) new = (Just new, countj, total)
-          f (Just old, countj, total) new | old == new = (Just new, countj, total+1)
+          f (Just old, countj, total) new | p old new = (Just new, countj, total+1)
                                           | otherwise  = (Just new, countj+1, total+1)
           ini = (Nothing, 0, 0)
           c (_, j, t) = realToFrac j/realToFrac t
