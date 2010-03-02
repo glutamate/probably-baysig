@@ -60,10 +60,18 @@ metropolis qSam p
 metSample1 :: (a->Sampler a) -> P.PDF a -> a -> Sampler a
 metSample1 prop pdf = uncondSampler $ metropolisLn prop pdf
 
+notNanInf x = not (isNaN x) && not (isInfinite x)
+
+notNanInf2 x y = notNanInf x && notNanInf y
+nanOrInf x = isNaN x || isInfinite x
 
 metropolisLn :: (a->Sampler a) -> P.PDF a -> StochFun a a
 metropolisLn qSam p 
-    = let accept pi pstar =  min 1 $ exp (pstar - pi)
+    = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                          | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
+                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)),
+                                              (nanOrInf pstar, -1), -- never accept
+                                              (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
       in proc (xi) -> do
         u <- sampler unitSample -< ()
         xstar <- condSampler qSam -< xi
@@ -73,9 +81,65 @@ metropolisLn qSam p
                       then xstar
                       else xi
 
+data Param a = Param { jumpCount :: Int,
+                       totalCount :: Int,
+                       cachedLH :: Double,
+                       currentWidth :: Double,
+                       unParam :: a }
+
+newPar :: a -> Param a
+newPar x = Param 0 0 0 1 x
+
+condDepSampler :: (Double -> b->Sampler a) -> StochFun (Double,b) a
+condDepSampler dqSam = SF $ \((w,x),dbls) -> unSam (dqSam w x) dbls
+
+metropolisLnP :: (Double -> a->Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnP qSam p
+    = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                          | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
+                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)),
+                                              (nanOrInf pstar, -1), -- never accept
+                                              (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
+      in proc (Param j t lhi curw xi) -> do
+        let (nextw, nj, nt) = calcNextW curw j t
+        u <- sampler unitSample -< ()
+        xstar <- condDepSampler qSam -< (nextw, xi)
+        let pstar = p xstar 
+        let pi = p xi 
+        returnA -< if u < accept pi pstar
+                      then Param (nj+1) (nt+1) lhi nextw xstar
+                      else Param nj (nt+1) lhi nextw xi
+
+x `divides` y = y `mod` x == 0
+
+calcNextW w j t | 10000 `divides` t= 
+                    let jf = realToFrac j / realToFrac t in 
+                    cond [(jf > 0.50, (w*2, 0, 0)),
+                          (jf > 0.40, (w*1.5, 0, 0)),
+                          (jf < 0.10, (w/2, 0, 0)),
+                          (jf < 0.15, (w/1.5, 0, 0))] (w, 0, 0)
+                | otherwise = (w, j, t)
+
+metropolisLnPCL :: (Double -> a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnPCL qSam lhf priorf 
+    = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                          | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
+                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)),
+                                              (nanOrInf pstar, -1), -- never accept
+                                              (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
+      in proc (Param j t lhi curw xi) -> do
+        let (nextw, nj, nt) = calcNextW curw j t
+        u <- sampler unitSample -< ()
+        xstar <- condDepSampler qSam -< (nextw, xi)
+        let lhstar = lhf xstar
+        let pstar = priorf xstar + lhstar
+        let pi = priorf xi + lhi
+        returnA -< if u < accept pi pstar
+                      then Param (nj+1) (nt+1) lhstar nextw xstar
+                      else Param nj (nt+1) lhi nextw xi
+
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
-
 
 metropolisLog ::(a->Sampler a) -> P.PDF a -> StochFun (a,Double) (a,Double)
 metropolisLog qSam p 
