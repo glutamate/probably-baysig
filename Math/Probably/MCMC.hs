@@ -85,58 +85,71 @@ data Param a = Param { jumpCount :: Int,
                        totalCount :: Int,
                        cachedLH :: Double,
                        currentWidth :: Double,
-                       unParam :: a }
+                       initial :: a,
+                       unP :: a }
 
-newPar :: a -> Param a
-newPar x = Param 0 0 0 1 x
 
-condDepSampler :: (Double -> b->Sampler a) -> StochFun (Double,b) a
-condDepSampler dqSam = SF $ \((w,x),dbls) -> unSam (dqSam w x) dbls
 
-metropolisLnP :: (Double -> a->Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
+newParam :: a -> Param a
+newParam x = Param 0 0 (1/0) 1 x x
+
+condDepSampler :: (Double -> b-> b->Sampler a) -> StochFun (Double,b,b) a
+condDepSampler dqSam = SF $ \((w,ini,x),dbls) -> unSam (dqSam w ini x) dbls
+
+metSample1P :: (Double -> a -> a -> Sampler a) -> P.PDF a -> (Param a) -> Sampler (Param a)
+metSample1P prop pdf = uncondSampler $ metropolisLnP prop pdf
+
+metSample1PCL :: (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
+metSample1PCL lh prior pdf = uncondSampler $ metropolisLnPCL lh prior pdf
+
+
+metropolisLnP :: (Double -> a-> a-> Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
 metropolisLnP qSam p
     = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
                           | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
                                                         error $ "metropolisLn pi pstar :"++show (pi,pstar)),
                                               (nanOrInf pstar, -1), -- never accept
                                               (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc (Param j t lhi curw xi) -> do
+      in proc (Param j t lhi curw ini xi) -> do
         let (nextw, nj, nt) = calcNextW curw j t
         u <- sampler unitSample -< ()
-        xstar <- condDepSampler qSam -< (nextw, xi)
+        xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let pstar = p xstar 
         let pi = p xi 
         returnA -< if u < accept pi pstar
-                      then Param (nj+1) (nt+1) lhi nextw xstar
-                      else Param nj (nt+1) lhi nextw xi
+                      then Param (nj+1) (nt+1) lhi nextw ini xstar
+                      else Param nj (nt+1) lhi nextw ini xi
 
 x `divides` y = y `mod` x == 0
 
-calcNextW w j t | 10000 `divides` t= 
+calcNextW w j t | 2000 `divides` t= 
                     let jf = realToFrac j / realToFrac t in 
-                    cond [(jf > 0.50, (w*2, 0, 0)),
+                    cond [(jf > 0.80, (w*4, 0, 0)),
+                          (jf > 0.50, (w*2, 0, 0)),
                           (jf > 0.40, (w*1.5, 0, 0)),
+                          (jf < 0.05, (w/4, 0, 0)),
                           (jf < 0.10, (w/2, 0, 0)),
                           (jf < 0.15, (w/1.5, 0, 0))] (w, 0, 0)
                 | otherwise = (w, j, t)
 
-metropolisLnPCL :: (Double -> a->Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnPCL :: (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
 metropolisLnPCL qSam lhf priorf 
     = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
                           | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
                                                         error $ "metropolisLn pi pstar :"++show (pi,pstar)),
                                               (nanOrInf pstar, -1), -- never accept
                                               (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc (Param j t lhi curw xi) -> do
+      in proc (Param j t lhi curw ini xi) -> do
         let (nextw, nj, nt) = calcNextW curw j t
         u <- sampler unitSample -< ()
-        xstar <- condDepSampler qSam -< (nextw, xi)
+        xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let lhstar = lhf xstar
+        let lhi' = if notNanInf lhi then lhi else lhf xi
         let pstar = priorf xstar + lhstar
         let pi = priorf xi + lhi
         returnA -< if u < accept pi pstar
-                      then Param (nj+1) (nt+1) lhstar nextw xstar
-                      else Param nj (nt+1) lhi nextw xi
+                      then Param (nj+1) (nt+1) lhstar nextw ini xstar
+                      else Param nj (nt+1) lhi nextw ini xi
 
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
