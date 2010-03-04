@@ -86,7 +86,7 @@ data Param a = Param { jumpCount :: Int,
                        cachedLH :: Double,
                        currentWidth :: Double,
                        initial :: a,
-                       unP :: a }
+                       unP :: a } deriving Show
 
 
 
@@ -100,7 +100,7 @@ metSample1P :: (Double -> a -> a -> Sampler a) -> P.PDF a -> (Param a) -> Sample
 metSample1P prop pdf = uncondSampler $ metropolisLnP prop pdf
 
 metSample1PCL :: (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
-metSample1PCL lh prior pdf = uncondSampler $ metropolisLnPCL lh prior pdf
+metSample1PCL prop lh prior = uncondSampler $ metropolisLnPCL prop lh prior
 
 
 metropolisLnP :: (Double -> a-> a-> Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
@@ -122,15 +122,19 @@ metropolisLnP qSam p
 
 x `divides` y = y `mod` x == 0
 
-calcNextW w j t | 2000 `divides` t= 
-                    let jf = realToFrac j / realToFrac t in 
-                    cond [(jf > 0.80, (w*4, 0, 0)),
-                          (jf > 0.50, (w*2, 0, 0)),
-                          (jf > 0.40, (w*1.5, 0, 0)),
-                          (jf < 0.05, (w/4, 0, 0)),
-                          (jf < 0.10, (w/2, 0, 0)),
-                          (jf < 0.15, (w/1.5, 0, 0))] (w, 0, 0)
+calcNextW w j t | 1000 `divides` t= 
+                    let jf = realToFrac j / realToFrac t 
+                        nxtW = w*nextW jf in                    
+                    {-trace (show (w, nxtW, j, t)) -} (nxtW, 0, 0)
                 | otherwise = (w, j, t)
+
+nextW jf | jf > 0.80 = 4
+         | jf > 0.50 = 2
+         | jf > 0.40 = 1.5
+         | jf < 0.05 = 0.25
+         | jf < 0.10 = 0.5
+         | jf < 0.15 = 0.667
+         | otherwise = 1
 
 metropolisLnPCL :: (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
 metropolisLnPCL qSam lhf priorf 
