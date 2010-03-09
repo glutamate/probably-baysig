@@ -1,6 +1,8 @@
 {-# LANGUAGE ViewPatterns, NoMonomorphismRestriction, FlexibleInstances #-}
 module Math.Probably.PDF where
 
+import Math.Probably.Student
+
 type PDF a = a->Double
 
 uniform :: (Real a, Fractional a) => a-> a-> PDF a
@@ -17,6 +19,15 @@ gaussD mean sd = \x->recip(sd*sqrt(2*pi))*exp(-(x-mean)**2/(2*sd*sd))
 
 logGaussD :: Double -> Double-> PDF Double
 logGaussD mean sd x = negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
+
+gammafun = exp . gammaln
+
+--http://en.wikipedia.org/wiki/Gamma_distribution
+gammaD :: Double -> Double -> PDF Double
+gammaD k theta x = x**(k-1)*(exp(-x/theta)/(theta**k*(exp (gammaln k))))
+
+invGammaD :: Double -> Double -> PDF Double
+invGammaD a b x =(b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
 
 
 {-# SPECIALIZE gauss :: Double -> Double-> PDF Double #-}
