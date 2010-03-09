@@ -57,7 +57,7 @@ metropolis qSam p
                       then xstar
                       else xi
 
-metSample1 :: (a->Sampler a) -> P.PDF a -> a -> Sampler a
+metSample1 ::  Show a => (a->Sampler a) -> P.PDF a -> a -> Sampler a
 metSample1 prop pdf = uncondSampler $ metropolisLn prop pdf
 
 notNanInf x = not (isNaN x) && not (isInfinite x)
@@ -65,19 +65,20 @@ notNanInf x = not (isNaN x) && not (isInfinite x)
 notNanInf2 x y = notNanInf x && notNanInf y
 nanOrInf x = isNaN x || isInfinite x
 
-metropolisLn :: (a->Sampler a) -> P.PDF a -> StochFun a a
+metropolisLn :: Show a => (a->Sampler a) -> P.PDF a -> StochFun a a
 metropolisLn qSam p 
-    = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
-                          | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
-                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)),
-                                              (nanOrInf pstar, -1), -- never accept
-                                              (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
+    = let accept xi pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                             | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
+                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)++"\n"++
+                                                                show xi),
+                                                 (nanOrInf pstar, -1), -- never accept
+                                                 (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
       in proc (xi) -> do
         u <- sampler unitSample -< ()
         xstar <- condSampler qSam -< xi
         let pstar = p xstar
         let pi = p xi
-        returnA -< if u < accept pi pstar
+        returnA -< if u < accept xi pi pstar
                       then xstar
                       else xi
 
