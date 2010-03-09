@@ -110,15 +110,15 @@ metropolisLnP qSam p
                                                         error $ "metropolisLn pi pstar :"++show (pi,pstar)),
                                               (nanOrInf pstar, -1), -- never accept
                                               (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc (Param j t lhi curw ini xi) -> do
+      in proc (Param j t _ curw ini xi) -> do
         let (nextw, nj, nt) = calcNextW curw j t
         u <- sampler unitSample -< ()
         xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let pstar = p xstar 
         let pi = p xi 
         returnA -< if u < accept pi pstar
-                      then Param (nj+1) (nt+1) lhi nextw ini xstar
-                      else Param nj (nt+1) lhi nextw ini xi
+                      then Param (nj+1) (nt+1) pstar nextw ini xstar
+                      else Param nj (nt+1) pi nextw ini xi
 
 x `divides` y = y `mod` x == 0
 

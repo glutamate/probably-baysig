@@ -16,7 +16,7 @@ gaussD :: Double -> Double-> PDF Double
 gaussD mean sd = \x->recip(sd*sqrt(2*pi))*exp(-(x-mean)**2/(2*sd*sd))
 
 logGaussD :: Double -> Double-> PDF Double
-logGaussD mean sd = \x->negate $ (x-mean)**2/(2*sd*sd)
+logGaussD mean sd x = negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
 
 
 {-# SPECIALIZE gauss :: Double -> Double-> PDF Double #-}
