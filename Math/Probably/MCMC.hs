@@ -97,27 +97,29 @@ newParam x = Param 0 0 (1/0) 1 x x
 condDepSampler :: (Double -> b-> b->Sampler a) -> StochFun (Double,b,b) a
 condDepSampler dqSam = SF $ \((w,ini,x),dbls) -> unSam (dqSam w ini x) dbls
 
-metSample1P :: (Double -> a -> a -> Sampler a) -> P.PDF a -> (Param a) -> Sampler (Param a)
-metSample1P prop pdf = uncondSampler $ metropolisLnP prop pdf
+metSample1P :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> (Param a) -> Sampler (Param a)
+metSample1P st prop pdf = uncondSampler $ metropolisLnP st prop pdf
 
-metSample1PCL :: (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
-metSample1PCL prop lh prior = uncondSampler $ metropolisLnPCL prop lh prior
+metSample1PCL :: String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
+metSample1PCL st prop lh prior = uncondSampler $ metropolisLnPCL st prop lh prior
 
 
-metropolisLnP :: (Double -> a-> a-> Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
-metropolisLnP qSam p
-    = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
-                          | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
-                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)),
-                                              (nanOrInf pstar, -1), -- never accept
-                                              (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
+metropolisLnP ::  Show a => String -> (Double -> a-> a-> Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnP st qSam p
+    = let accept xi pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                             | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
+                                                        error $ "metropolisLnP "++st++" pi pi pstar :"++
+                                                                show (pi,pstar)++"\n"++
+                                                                show xi),
+                                                 (nanOrInf pstar, -1), -- never accept
+                                                 (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
       in proc (Param j t _ curw ini xi) -> do
         let (nextw, nj, nt) = calcNextW curw j t
         u <- sampler unitSample -< ()
         xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let pstar = p xstar 
         let pi = p xi 
-        returnA -< if u < accept pi pstar
+        returnA -< if u < accept xi pi pstar
                       then Param (nj+1) (nt+1) pstar nextw ini xstar
                       else Param nj (nt+1) pi nextw ini xi
 
@@ -137,11 +139,11 @@ nextW jf | jf > 0.80 = 4
          | jf < 0.15 = 0.667
          | otherwise = 1
 
-metropolisLnPCL :: (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
-metropolisLnPCL qSam lhf priorf 
+metropolisLnPCL :: String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnPCL st qSam lhf priorf 
     = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
                           | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
-                                                        error $ "metropolisLn pi pstar :"++show (pi,pstar)),
+                                                        error $ "metropolisLnPCL "++st++" pi pstar :"++show (pi,pstar)),
                                               (nanOrInf pstar, -1), -- never accept
                                               (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
       in proc (Param j t lhi curw ini xi) -> do
