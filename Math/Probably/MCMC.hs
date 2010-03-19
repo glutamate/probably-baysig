@@ -13,6 +13,7 @@ import Math.Probably.FoldingStats
 import TNUtils
 import Control.Monad
 import Debug.Trace
+import Data.Binary
 
 --http://videolectures.net/mlss08au_freitas_asm/
 rejection :: Double -> P.PDF a -> Sampler a -> P.PDF a -> Sampler a
@@ -90,6 +91,12 @@ data Param a = Param { jumpCount :: Int,
                        initial :: a,
                        unP :: a } deriving Show
 
+instance Binary a => Binary (Param a) where
+    put (Param j t tt cLH curW ini x) = 
+      put (j,t, tt, cLH, curW, ini, x)
+    get = do
+      (j,t, tt, cLH, curW, ini, x) <- get
+      return $ Param j t tt cLH curW ini x
 
 
 newParam :: a -> Param a
