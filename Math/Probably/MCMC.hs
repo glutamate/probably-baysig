@@ -84,6 +84,7 @@ metropolisLn qSam p
 
 data Param a = Param { jumpCount :: Int,
                        totalCount :: Int,
+                       totalTotalCount ::Int,
                        cachedLH :: Double,
                        currentWidth :: Double,
                        initial :: a,
@@ -92,7 +93,7 @@ data Param a = Param { jumpCount :: Int,
 
 
 newParam :: a -> Param a
-newParam x = Param 0 0 (1/0) 1 x x
+newParam x = Param 0 0 0 (1/0) 1 x x
 
 condDepSampler :: (Double -> b-> b->Sampler a) -> StochFun (Double,b,b) a
 condDepSampler dqSam = SF $ \((w,ini,x),dbls) -> unSam (dqSam w ini x) dbls
@@ -100,7 +101,7 @@ condDepSampler dqSam = SF $ \((w,ini,x),dbls) -> unSam (dqSam w ini x) dbls
 metSample1P :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> (Param a) -> Sampler (Param a)
 metSample1P st prop pdf = uncondSampler $ metropolisLnP st prop pdf
 
-metSample1PCL :: String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
+metSample1PCL :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
 metSample1PCL st prop lh prior = uncondSampler $ metropolisLnPCL st prop lh prior
 
 
@@ -113,50 +114,54 @@ metropolisLnP st qSam p
                                                                 show xi),
                                                  (nanOrInf pstar, -1), -- never accept
                                                  (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc (Param j t _ curw ini xi) -> do
-        let (nextw, nj, nt) = calcNextW curw j t
+      in proc par@(Param j t tt _ curw ini xi) -> do
+        let (nextw, nj, nt) = calcNextW curw j t tt
         u <- sampler unitSample -< ()
         xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let pstar = p xstar 
         let pi = p xi 
-        returnA -< if u < accept xi pi pstar
-                      then Param (nj+1) (nt+1) pstar nextw ini xstar
-                      else Param nj (nt+1) pi nextw ini xi
+        returnA -< if u < accept par pi pstar
+                      then Param (nj+1) (nt+1) (tt+1) pstar nextw ini xstar
+                      else Param nj (nt+1) (tt+1) pi nextw ini xi
 
 x `divides` y = y `mod` x == 0
 
-calcNextW w j t | 1000 `divides` t= 
-                    let jf = realToFrac j / realToFrac t 
-                        nxtW = w*nextW jf in                    
+calcNextW w j t tt | mutFreq `divides` t= 
+                     let jf = realToFrac j / realToFrac t 
+                         nxtW = w*nextW jf in                    
                     {-trace (show (w, nxtW, j, t)) -} (nxtW, 0, 0)
-                | otherwise = (w, j, t)
+                   | otherwise = (w, j, t)
+    where mutFreq = cond [(t<20000, 2000),
+                          (t<200000, 5000)] 5000000
+                       
 
-nextW jf | jf > 0.80 = 4
-         | jf > 0.50 = 2
-         | jf > 0.40 = 1.5
-         | jf < 0.05 = 0.25
-         | jf < 0.10 = 0.5
-         | jf < 0.15 = 0.667
+nextW jf | jf > 0.80 = 3
+         | jf > 0.50 = 1.4
+         | jf < 0.05 = 0.3
+         | jf < 0.10 = 0.6
+         | jf < 0.20 = 0.8
          | otherwise = 1
 
-metropolisLnPCL :: String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnPCL :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
 metropolisLnPCL st qSam lhf priorf 
-    = let accept pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
-                          | otherwise = cond [(nanOrInf pi && nanOrInf pstar, 
-                                                        error $ "metropolisLnPCL "++st++" pi pstar :"++show (pi,pstar)),
-                                              (nanOrInf pstar, -1), -- never accept
-                                              (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc (Param j t lhi curw ini xi) -> do
-        let (nextw, nj, nt) = calcNextW curw j t
+    = let accept xi pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                             | otherwise = cond [(nanOrInf pi && nanOrInf pstar,
+                                                        error $ "metropolisLnPCL "++st++" pi pi pstar :"++
+                                                                show (pi,pstar)++"\n"++
+                                                                show xi),
+                                                (nanOrInf pstar, -1), -- never accept                                
+                                                (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
+      in proc par@(Param j t tt lhi curw ini xi) -> do
+        let (nextw, nj, nt) = calcNextW curw j t tt
         u <- sampler unitSample -< ()
         xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let lhstar = lhf xstar
         let lhi' = if notNanInf lhi then lhi else lhf xi
         let pstar = priorf xstar + lhstar
         let pi = priorf xi + lhi
-        returnA -< if u < accept pi pstar
-                      then Param (nj+1) (nt+1) lhstar nextw ini xstar
-                      else Param nj (nt+1) lhi nextw ini xi
+        returnA -< if u < accept par pi pstar
+                      then Param (nj+1) (nt+1) (tt+1) lhstar nextw ini xstar
+                      else Param nj (nt+1) (tt+1) lhi nextw ini xi
 
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x

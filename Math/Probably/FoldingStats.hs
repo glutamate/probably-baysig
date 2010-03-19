@@ -184,6 +184,8 @@ regress vls = let xs = map (fst . getTag) vls
                   slope = nume/denom
               in (slope,my-slope*mx)
 -}
+
+regressF :: Fold (Double, Double) (Double, Double)
 regressF = post <$> (	 dotProdF `both` 
 			(before sumF fst) `both` 
 			(before sumF snd) `both` 
