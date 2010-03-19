@@ -83,13 +83,13 @@ metropolisLn qSam p
                       then xstar
                       else xi
 
-data Param a = Param { jumpCount :: Int,
-                       totalCount :: Int,
-                       totalTotalCount ::Int,
+data Param a = Param { jumpCount :: !Int,
+                       totalCount :: !Int,
+                       totalTotalCount :: !Int,
                        cachedLH :: Double,
-                       currentWidth :: Double,
-                       initial :: a,
-                       unP :: a } deriving Show
+                       currentWidth :: !Double,
+                       initial :: !a,
+                       unP :: !a } deriving Show
 
 instance Binary a => Binary (Param a) where
     put (Param j t tt cLH curW ini x) = 
