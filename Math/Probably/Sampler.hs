@@ -111,11 +111,18 @@ gaussTwoAtATimeD _ = []
 bernoulli :: Double -> Sampler Bool
 bernoulli p = (<p) `fmap` unitSample 
 
-
+--http://en.wikipedia.org/wiki/Log-normal_distribution#Generating_log-normally-distributed_random_variates
+logNormal :: (Floating b) => b -> b -> Sampler b
+logNormal m sd = 
+    do n <- gauss 0 1
+       return $ exp $ m + sd * n
 
 oneOf :: [a] -> Sampler a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
               return $ xs !! idx
+
+nOf :: Int -> [a] -> Sampler [a]
+nOf n xs = sequence $ replicate n $ oneOf xs
 
 {-main = do 
   rnds <- take 1000 `fmap` runSamplerSysRan (oneOf [1,2,3])

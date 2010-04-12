@@ -170,6 +170,16 @@ meanSEMF :: Floating a => Fold a (a,a)
 meanSEMF = f <$> nSumSumSqr 
     where f ((s0, s1), s2) = (s1/s0, (sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))/sqrt s0)
 
+muLogNormalF :: Fractional a => Fold a a
+muLogNormalF = pure (/) <*> before sumF log <*> realLengthF
+
+varLogNormalF :: Fractional a => Fold a a
+varLogNormalF = pure (-) <*> before meanF (square . log) <*> after muLogNormalF square
+   where square x = x*x
+
+logNormalF :: Fractional a => Fold a (a,a)
+logNormalF = both muLogNormalF varLogNormalF
+
 --mean :: Fractional a => [a] -> a
 --mean = cfoldl' meanF
 

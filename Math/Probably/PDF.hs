@@ -29,6 +29,12 @@ gammaD k theta x = x**(k-1)*(exp(-x/theta)/(theta**k*(exp (gammaln k))))
 invGammaD :: Double -> Double -> PDF Double
 invGammaD a b x =(b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
 
+logNormal m sd x = recip (x*sd*sqrt(2*pi)) * exp (negate $ square (log x - m) / (2*square sd))
+    where square x = x*x
+
+logLogNormal m sd x = negate $ (x*sd*sqrt(2*pi)) + square (log x - m) / (2*square sd)
+    where square x = x*x
+
 
 {-# SPECIALIZE gauss :: Double -> Double-> PDF Double #-}
 
