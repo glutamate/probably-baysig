@@ -35,6 +35,8 @@ logNormal m sd x = recip (x*sd*sqrt(2*pi)) * exp (negate $ square (log x - m) / 
 logLogNormal m sd x = negate $ (x*sd*sqrt(2*pi)) + square (log x - m) / (2*square sd)
     where square x = x*x
 
+logLogNormalD :: Double -> Double-> PDF Double
+logLogNormalD = logLogNormal
 
 {-# SPECIALIZE gauss :: Double -> Double-> PDF Double #-}
 

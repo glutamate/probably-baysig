@@ -31,11 +31,19 @@ withGlobalRnds f = unsafePerformIO $ do
 
 {-# NOINLINE sampleN #-}
 sampleN :: Int -> Sampler a -> [a]
-sampleN n sf = 
+sampleN n = unsafePerformIO . fmap (take n) . runSamplerIO 
+
+{-  withGlobalRnds (\rs -> sam n rs sf [])
+    where sam 0 rs _ xs          = (xs, rs)
+          sam n rs s@(Sam sf) xs = let (x, rs') = sf rs 
+                                   in sam (n-1) rs' s (x:xs) -}
+
+{-sampleNV :: Int -> Sampler a -> Vector a
+sampleNV n sf = 
   withGlobalRnds (\rs -> sam n rs sf [])
     where sam 0 rs _ xs          = (xs, rs)
           sam n rs s@(Sam sf) xs = let (x, rs') = sf rs 
-                                   in sam (n-1) rs' s (x:xs)
+                                   in sam (n-1) rs' s (x:xs) -}
 
 sampleNsr :: Int -> Sampler a -> [a]
 sampleNsr n sf = 
