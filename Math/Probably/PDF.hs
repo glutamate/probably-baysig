@@ -2,8 +2,23 @@
 module Math.Probably.PDF where
 
 import Math.Probably.Student
+import TNUtils
 
 type PDF a = a->Double
+
+instance Show (a->Double) where
+    show f = error "Math.Prob.PDF: showing function" 
+
+instance Eq (a->Double) where
+    f == g = error "Math.Prob.PDF: comparing functions!"
+
+instance Num a => Num (a->Double) where
+    f + g = \x-> f x + g x
+    f * g = \x-> f x * g x
+    f - g = \x-> f x - g x
+    abs f = \x -> abs (f x)
+    signum f = \x-> signum $ f x
+    fromInteger = error $ "Math.Prob.PDF: frominteger on function"
 
 uniform :: (Real a, Fractional a) => a-> a-> PDF a
 uniform from to = \x-> if x>=from && x <=to

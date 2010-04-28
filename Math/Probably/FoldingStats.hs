@@ -214,8 +214,19 @@ regressF = post <$> (	 dotProdF `both`
 nSumSumSqr :: Fractional a => Fold a ((a, a), a)
 nSumSumSqr = (realLengthF `both` sumF `both` (before sumF square))
 
-
-
 --regress = runStat regressF
+
+
+--gamma from wikipedia "gamma distribution"
+
+gammaF :: Fold Double (Double,Double)
+gammaF = 
+   let final mn lmn = 
+           let s = log mn - lmn
+               kapprox = (3-s+sqrt((s-3)**2+24*s))/(12*s)
+               theta = recip kapprox * mn
+           in (kapprox, theta)
+   in pure final <*> meanF <*> before meanF log
+
 
 

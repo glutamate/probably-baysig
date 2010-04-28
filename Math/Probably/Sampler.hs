@@ -202,3 +202,38 @@ binomial n p = do
   bools <- forM [1..n] $ const $ fmap (<p) unitSample
   return $ length $ [t | t@True <- bools]
   
+-- from random-fu
+gamma :: Double -> Double -> Sampler Double
+gamma a b 
+     | a < 1 
+    = do
+        u <- unitSample
+        x <- gamma (1 + a) b
+        return (x * u ** recip a)
+    | otherwise
+    = go
+        where
+            d = a - (1 / 3)
+            c = recip (3 * sqrt d) -- (1 / 3) / sqrt d
+            
+            go = do
+                x <- gaussD 0 1
+                
+                let cx = c * x
+                    v = (1 + cx) ^ 3
+                    
+                    x_2 = x * x
+                    x_4 = x_2 * x_2
+                
+                if cx <= (-1)
+                    then go
+                    else do
+                        u <- unitSample
+                        
+                        if         u < 1 - 0.0331 * x_4
+                            || log u < 0.5 * x_2  + d * (1 - v + log v)
+                            then return (b * d * v)
+                            else go
+
+invGamma :: Double -> Double -> Sampler Double
+invGamma a b = recip `fmap` gamma a b
