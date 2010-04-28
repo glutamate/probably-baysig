@@ -9,6 +9,8 @@ import Data.Array.Vector
 import qualified Math.Probably.PDF as PDF
 import qualified System.Random as SR
 import Data.List
+import Numeric.LinearAlgebra
+
 
 newtype Sampler a = Sam {unSam :: [Double] -> (a, [Double]) }
 
@@ -237,3 +239,15 @@ gamma a b
 
 invGamma :: Double -> Double -> Sampler Double
 invGamma a b = recip `fmap` gamma a b
+
+--http://en.wikipedia.org/wiki/Multivariate_normal_distribution#Drawing_values_from_the_distribution
+--multiNormal :: Vector Double -> Matrix Double -> Sampler (Vector Double)
+multiNormal mu sigma =
+  let a = chol sigma
+      k = dim mu
+  in do z <- fromList `fmap` gaussManyUnitD k
+--        return $ mu + (head $ toColumns $ a*asRow z)
+        let c = asColumn z
+        let r = asRow z
+        return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
+

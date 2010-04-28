@@ -2,6 +2,7 @@
 module Math.Probably.PDF where
 
 import Math.Probably.Student
+import Numeric.LinearAlgebra
 import TNUtils
 
 type PDF a = a->Double
@@ -72,3 +73,17 @@ mulPdf d1 d2 = \x -> (d1 x * d2 x)
 choose n 0 = 1
 choose 0 k = 0
 choose (n+1) (k+1) = (choose n k) * (n+1) `div` (k+1)
+
+
+multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)
+multiNormal mu sigma = 
+  let k = realToFrac $ dim mu
+      invSigma = inv sigma
+      mat1 = head . head . toLists
+  in \x-> recip ((2*pi)**(k/2) * sqrt(det sigma)) * exp (mat1 $ negate $ 0.5*(asColumn $ x-mu)*invSigma*(asRow $ x-mu) ) 
+
+mu1 = 2 |> [0, 0]
+sig1 = (2><2)[1, 0,
+              0, 1]
+
+tst = multiNormal mu1 sig1 mu1

@@ -21,4 +21,4 @@ Exposed-modules:     Math.Probably.Sampler,
 
 			
 Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, 
-                     random, directory, process, tnutils, mtl, fad, binary
+                     random, directory, process, tnutils, mtl, fad, binary, hmatrix

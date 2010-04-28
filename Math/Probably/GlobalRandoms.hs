@@ -6,6 +6,9 @@ import System.IO.Unsafe
 import Math.Probably.Sampler
 import qualified System.Random as SR
 
+import Numeric.LinearAlgebra
+
+
 {-# NOINLINE globalRandoms #-}
 globalRandoms :: IORef [Double]
 globalRandoms = unsafePerformIO $ getStdGen >>= randoms >>= newIORef
@@ -53,3 +56,5 @@ sampleNsr n sf =
     where sam 0 rs _ xs          = (xs, rs)
           sam n rs s@(Sam sf) xs = let (x, rs') = sf rs 
                                    in sam (n-1) rs' s (x:xs)
+
+--tst = head $ sampleN 1 $ multiNormal mu1 sig1
