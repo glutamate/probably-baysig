@@ -89,7 +89,8 @@ data Param a = Param { jumpCount :: !Int,
                        cachedLH :: Double,
                        currentWidth :: !Double,
                        initial :: !a,
-                       unP :: !a } deriving Show
+                       unP :: !a } 
+               | NonInitialisedParam deriving Show
 
 instance Binary a => Binary (Param a) where
     put (Param j t tt cLH curW ini x) = 

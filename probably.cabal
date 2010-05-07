@@ -10,13 +10,13 @@ Exposed-modules:     Math.Probably.Sampler,
                      Math.Probably.FoldingStats,
                      Math.Probably.Student,
                      Math.Probably.PlotR,
-                     Math.Probably.ChunkedArray,
 		     Math.Probably.PDF,
 		     Math.Probably.StochFun,
 		     Math.Probably.Visualise,
 		     Math.Probably.MCMC,
 		     Math.Probably.KMeans,
 		     Math.Probably.GlobalRandoms,
+		     Math.Probably.Distribution,
 		     Math.Probably.JAGS
 
 			
