@@ -80,10 +80,17 @@ multiNormal mu sigma =
   let k = realToFrac $ dim mu
       invSigma = inv sigma
       mat1 = head . head . toLists
-  in \x-> recip ((2*pi)**(k/2) * sqrt(det sigma)) * exp (mat1 $ negate $ 0.5*(asColumn $ x-mu)*invSigma*(asRow $ x-mu) ) 
+  in \x-> recip ((2*pi)**(k/2) * sqrt(det sigma)) * exp (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
-mu1 = 2 |> [0, 0]
-sig1 = (2><2)[1, 0,
+mu1 = 2 |> [0, 0::Double]
+sig1 = (2><2)[1::Double, 0,
               0, 1]
 
 tst = multiNormal mu1 sig1 mu1
+tsta = inv sig1
+tstb = det sig1
+tstc = let mu = mu1
+           sigma = sig1 
+           x = mu1
+           invSigma = inv sigma
+       in (asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) 

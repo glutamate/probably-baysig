@@ -26,6 +26,16 @@ instance ProperDistribution Normal where
 
 data Gamma = Gamma Double Double
 
+data Uniform a = Uniform a a
+
+instance (Fractional a, Real a) => Distribution (Uniform a) where
+      type Elem (Uniform a) = a
+      pdf (Uniform x y) = P.uniform x y
+
+instance (Fractional a, Real a, Bounded a) => ProperDistribution (Uniform a) where
+      sampler (Uniform x y) = S.uniform x y
+      estimator = fmap (uncurry Uniform) (minF `both` maxF)
+
 instance Distribution Gamma where
       type Elem (Gamma) = Double
       pdf (Gamma a b) = P.gammaD a b
