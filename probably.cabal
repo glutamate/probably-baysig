@@ -20,5 +20,5 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.JAGS
 
 			
-Build-depends:       base, uvector, mersenne-random, hstats, statistics-fusion, 
+Build-depends:       base, mersenne-random, uvector,
                      random, directory, process, tnutils, mtl, fad, binary, hmatrix

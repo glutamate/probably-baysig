@@ -1,7 +1,7 @@
 {-# LANGUAGE ViewPatterns, NoMonomorphismRestriction, FlexibleInstances #-}
 module Math.Probably.PDF where
 
-import Math.Probably.Student
+import qualified Math.Probably.Student as S
 import Numeric.LinearAlgebra
 import TNUtils
 
@@ -36,11 +36,11 @@ gaussD mean sd = \x->recip(sd*sqrt(2*pi))*exp(-(x-mean)**2/(2*sd*sd))
 logGaussD :: Double -> Double-> PDF Double
 logGaussD mean sd x = negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
 
-gammafun = exp . gammaln
+gammafun = exp . S.gammaln
 
 --http://en.wikipedia.org/wiki/Gamma_distribution
 gammaD :: Double -> Double -> PDF Double
-gammaD k theta x = x**(k-1)*(exp(-x/theta)/(theta**k*(exp (gammaln k))))
+gammaD k theta x = x**(k-1)*(exp(-x/theta)/(theta**k*(exp (S.gammaln k))))
 
 invGammaD :: Double -> Double -> PDF Double
 invGammaD a b x =(b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
@@ -54,12 +54,18 @@ logLogNormal m sd x = negate $ (x*sd*sqrt(2*pi)) + square (log x - m) / (2*squar
 logLogNormalD :: Double -> Double-> PDF Double
 logLogNormalD = logLogNormal
 
+
+beta a b x = (recip $ S.beta a b) * x ** (a-1) * (1-x) ** (b-1)
 {-# SPECIALIZE gauss :: Double -> Double-> PDF Double #-}
 
 --this is a Prob. Mass function, not density.
 binomial :: Int -> Double -> PDF Int
-binomial n p k = let realk = realToFrac k
-                 in realToFrac (choose  n k) * p**realk * (1-p)**(realToFrac $ n-k)
+binomial n p k = realToFrac (choose  (toInteger n) (toInteger k)) * p^^k * (1-p)^^(n-k)
+
+logBinomial :: Int -> Double -> PDF Int
+logBinomial n p k = 
+    let realk = realToFrac k
+    in log (realToFrac (choose (toInteger n) (toInteger k))) + realk * log( p ) + (realToFrac $ n-k) * log( (1-p) )
 
 zipPdfs :: Num a => PDF a -> PDF b -> PDF (a,b)
 zipPdfs fx fy (x,y) = fx x * fy y
@@ -70,9 +76,12 @@ mulPdf d1 d2 = \x -> (d1 x * d2 x)
 --instance Num a => Num (PDF a) where
     
 --http://blog.plover.com/math/choose.html
+choose :: Integer -> Integer -> Integer
 choose n 0 = 1
 choose 0 k = 0
-choose (n+1) (k+1) = (choose n k) * (n+1) `div` (k+1)
+choose (n) (k) |  k > n `div` 2 = choose n (n-k)
+               |  otherwise = (choose (n-1) (k-1)) * (n) `div` (k)
+
 
 
 multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)

@@ -251,3 +251,12 @@ multiNormal mu sigma =
         let r = asRow z
         return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
 
+--http://www.xycoon.com/beta_randomnumbers.htm
+beta :: Int -> Int -> Sampler Double
+beta a b = 
+    let gam n = do us <- forM [1..n] $ const unitSample
+                   return $ log $ product us
+    in do gama1 <- gam a
+          gama2 <- gam a
+          gamb <- gam b
+          return $ gama1/(gama2+gamb)

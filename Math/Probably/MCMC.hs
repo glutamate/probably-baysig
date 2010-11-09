@@ -83,6 +83,17 @@ metropolisLn qSam p
                       then xstar
                       else xi
 
+metropolisHastingsLn :: (a-> P.PDF a) -> (a->Sampler a) -> P.PDF a -> StochFun a a
+metropolisHastingsLn qPDF qSam p 
+    = let accept xi xstar = min 1 $ exp (p xstar - qPDF xstar xi - p xi + qPDF xi xstar)
+      in proc xi -> do
+        u <- sampler unitSample -< ()
+        xstar <- condSampler qSam -< xi
+        returnA -< if u < accept xi xstar
+                      then xstar
+                      else xi
+
+
 data Param a = Param { jumpCount :: !Int,
                        totalCount :: !Int,
                        totalTotalCount :: !Int,
@@ -220,6 +231,12 @@ bayesMetLog proposal pdfs inits =
     let p x =  sum $ map ($x) pdfs
         p0 = p inits
     in Mrkv (metropolisLog proposal p) (inits, p0) (fst)
+
+
+bayesMetHastLog :: Show a => (a->P.PDF a) -> (a->Sampler a) -> P.PDF a -> a -> Markov a
+bayesMetHastLog propPDF proposal p inits = 
+    {-let p0 = p inits
+    in-} Mrkv (metropolisHastingsLn propPDF proposal p) (inits) (id)
 
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
