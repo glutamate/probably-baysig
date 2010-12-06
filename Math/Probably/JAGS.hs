@@ -16,6 +16,7 @@ data Dist a = Beta a a
             | Exp a
             | Norm a a
             | Gamma a a
+            | Binomial a a
               deriving (Show, Eq)
 
 data Expr = Var String
@@ -37,13 +38,14 @@ data CmpOp = Lt | Gt | Eq deriving (Show, Eq)
 
 data Stat = Mean deriving (Show, Eq)
 
-data ModelLine = ForEvery String [ModelLine]
+data ModelLine = ForEvery String Int Int [ModelLine]
                | MkNode String Node
                  deriving (Show, Eq)
 
 ppDE (Beta x y) = "dbeta("++ppE x++", "++ppE y ++")"
 ppDE (Norm x y) = "dnorm("++ppE x++", "++ppE y ++")"
 ppDE (Gamma x y) = "dgamma("++ppE x++", "++ppE y ++")"
+ppDE (Binomial x y) = "dbin("++ppE x++", "++ppE y ++")"
 
 ppE (Var s) = s
 ppE (Const x) = show x
@@ -73,7 +75,7 @@ instance Show a => RDump [a] where
     rdump nm xs = nm++" <-\nc("++(intercalate ", " $ map show xs)++")\n"
 
 regressModel = Model
-                  [ForEvery "i" [
+                  [ForEvery "i" 1 5 [
                     "Y[i]" ~~ Norm "mu[i]" "tau",
                     "mu[i]" <-- "alpha" + "beta" * ("x[i]" - "xbar")
                     ],
@@ -119,8 +121,8 @@ showIdx (Just s) = "["++s++"]"
 
 tellLine (MkNode nm (DetNode e)) = tell $ nm++" <- "++ppE e
 tellLine (MkNode nm (StochNode e)) = tell $ nm++" ~ "++ppDE e
-tellLine (ForEvery n lns) = do
-  tell $ "for ("++n++" in 1:5) {"
+tellLine (ForEvery n n1 n2 lns) = do
+  tell $ "for ("++n++" in "++show n1++":"++show n2++") {"
   indent 3
   forM lns $ tellLine 
   indent $ -3
