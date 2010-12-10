@@ -17,6 +17,7 @@ data Dist a = Beta a a
             | Norm a a
             | Gamma a a
             | Binomial a a
+            | Uniform a a
               deriving (Show, Eq)
 
 data Expr = Var String
@@ -38,7 +39,7 @@ data CmpOp = Lt | Gt | Eq deriving (Show, Eq)
 
 data Stat = Mean deriving (Show, Eq)
 
-data ModelLine = ForEvery String Int Int [ModelLine]
+data ModelLine = ForEvery String Expr Expr [ModelLine]
                | MkNode String Node
                  deriving (Show, Eq)
 
@@ -46,6 +47,7 @@ ppDE (Beta x y) = "dbeta("++ppE x++", "++ppE y ++")"
 ppDE (Norm x y) = "dnorm("++ppE x++", "++ppE y ++")"
 ppDE (Gamma x y) = "dgamma("++ppE x++", "++ppE y ++")"
 ppDE (Binomial x y) = "dbin("++ppE x++", "++ppE y ++")"
+ppDE (Uniform x y) = "dunif("++ppE x++", "++ppE y ++")"
 
 ppE (Var s) = s
 ppE (Const x) = show x
@@ -95,17 +97,17 @@ modelToJags (Model lns) =
       indent $ -3
       tell "}"
 
-runModel :: Model -> [(String, [Double])] -> [String] -> IO [(String, Double, Double)]
-runModel m obs monits = do
+runModel :: Model -> Int -> Int -> [(String, [Double])] -> [String] -> IO [(String, Double, Double)]
+runModel m burn iters obs monits = do
   writeFile "jagsmodel" $ modelToJags m
   writeFile "jagsdata" $ concatMap (uncurry rdump) obs
   writeFile "jagsscript" $ unlines $ 
                 ["model in jagsmodel",
                  "data in jagsdata",
                  "compile", "initialize",
-                 "update 10000"]
+                 "update "++show burn]
                 ++ map ("monitor "++) monits++
-                ["update 10000"]++ map (\v->"coda "++v++", stem("++v++")") monits
+                ["update "++show iters]++ map (\v->"coda "++v++", stem("++v++")") monits
   system "jags jagsscript"
   forM monits $ \m -> do 
     lst <- (map (read .  dropWhile (==' ') . (dropWhile (/=' '))) .  lines) `fmap` readFile (m++"chain1.txt")
@@ -119,10 +121,13 @@ runModel m obs monits = do
 showIdx Nothing = ""
 showIdx (Just s) = "["++s++"]"
 
+ppEFor (Const x) = show $ round x
+ppEFor e = ppE e
+
 tellLine (MkNode nm (DetNode e)) = tell $ nm++" <- "++ppE e
 tellLine (MkNode nm (StochNode e)) = tell $ nm++" ~ "++ppDE e
 tellLine (ForEvery n n1 n2 lns) = do
-  tell $ "for ("++n++" in "++show n1++":"++show n2++") {"
+  tell $ "for ("++n++" in "++ppEFor n1++":"++ppEFor n2++") {"
   indent 3
   forM lns $ tellLine 
   indent $ -3
@@ -132,7 +137,7 @@ tstData = [("x", [1,2,3,4,5]),
            ("Y", [1,3,3,3,5])]
           
 
-tst = runModel regressModel tstData ["alpha", "beta"]
+tst = runModel regressModel 1000 1000 tstData ["alpha", "beta"]
                  
 
 instance Num Expr where
