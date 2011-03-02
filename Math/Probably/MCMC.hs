@@ -10,7 +10,7 @@ import Data.List
 import Data.Maybe
 import Data.Ord
 import Math.Probably.FoldingStats
-import TNUtils
+--import TNUtils
 import Control.Monad
 import Debug.Trace
 import Data.Binary
@@ -241,10 +241,8 @@ bayesMetHastLog propPDF proposal p inits =
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
 
-times :: Monad m => Int -> m a -> m [a]
-times n ma = forM [1..n] $ const ma
 
-test = 
+{-test = 
   let xs = [1, 2, 3]
       ys = [2, 3.9, 6.1]
       lh (a, b, sd) x = P.gauss (a*x+b) sd
@@ -256,12 +254,9 @@ test =
         ps <- take 1000 `fmap` runSamplerIO bsam
         print $ meanSDF `runStat` (map fst3 ps)
         print $ meanSDF `runStat` (map snd3 ps)
-        print $ regressF `runStat`  zip xs ys
+        print $ regressF `runStat`  zip xs ys -}
 
-
-
---bayes :: P.PDF a -> P.PDF a -> StochFun a a
---bayes prior likelihood = let numerator = prior `mulPdf` likelihood
-
-
---sampler $ uniform 0 1
+cond :: [(Bool, a)] -> a -> a
+cond [] x = x
+cond ((True, x):_) _ = x
+cond ((False, _):conds) x = cond conds x

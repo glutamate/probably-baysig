@@ -1,22 +1,49 @@
+-----------------------------------------------------------------------------
+{- |
+This module defines the monad of sampling functions. See Park, Pfenning and Thrun:
+A probabilistic language based upon sampling functions, Principles of programming languages 2005
+ 
+Sampling functions allow the composition of both discrete and continuous 
+probability distributions. 
+
+The implementation and interface are similar to those in the random-fu, monte-carlo 
+and monad-mersenne-random packages.
+
+Example -- a biased coin:
+
+@
+data Throw = Head | Tail
+
+throw bias = do
+  b <- bernoulli bias
+  return $ if b then Head else Tail
+
+tenThrowsCrooked = replicateM 10 $ throw 0.3
+
+countHeads = do 
+   throws <- tenThrowsCrooked
+   return $ length [ () | Head <- throws]
+
+main = do 
+ print =<< sampleIO tenThrowsCrooked
+ print =<< eval ((\<4) \`fmap\` countHeads)
+@
+
+-}
+
 {-# LANGUAGE BangPatterns #-}
 
 module Math.Probably.Sampler where
 
-import System.Random.Mersenne
 import Control.Monad
 import Control.Applicative
-import Data.Array.Vector
 import qualified Math.Probably.PDF as PDF
-import qualified System.Random as SR
-import Data.List
 import Numeric.LinearAlgebra
+import System.Random.Mersenne.Pure64
 
+type Seed = PureMT
 
-newtype Sampler a = Sam {unSam :: [Double] -> (a, [Double]) }
-
-
-unitSample :: Sampler Double
-unitSample = Sam $ \(r:rs) -> (r,rs)
+newtype Sampler a = Sam {unSam :: Seed -> (a, Seed) }
 
 instance Functor Sampler where
     fmap f (Sam sf) = Sam $ \rs -> let (x,rs') = sf rs in
@@ -33,46 +60,74 @@ instance Monad Sampler where
     (Sam sf) >>= f = Sam $ \rs-> let (x, rs') = sf rs in
                                (unSam $ f x) rs'
 
-(.==.), (./=.) :: (Eq a, Applicative m) => m a -> m a -> m Bool
-(.==.) = liftA2 (==)
-(./=.) = liftA2 (/=)
+-- | given a seed, return an infinite list of draws from sampling function
+runSampler :: Seed -> Sampler a -> [a]
+runSampler pmt s@(Sam sf) 
+   = let (x, pmt') = sf pmt
+     in x : runSampler pmt' s
 
-compareA :: (Ord a, Applicative m) => m a -> m a -> m Ordering
-compareA = liftA2 (compare) 
+-- | Get a seed
+getSeedIO :: IO Seed
+getSeedIO = newPureMT
 
-(.<.), (.>.), (.>=.), (.<=.):: (Ord a, Applicative m) => m a -> m a -> m Bool
-(.<.) = liftA2 (<)
-(.>.) = liftA2 (>)
-(.>=.) = liftA2 (>=)
-(.<=.) = liftA2 (<=)
+-- | Return an infinite list of draws from sampling function in the IO monad
+runSamplerIO :: Sampler a -> IO [a]
+runSamplerIO s = 
+   fmap (`runSampler` s) $ getSeedIO
 
---conor mcbride haskell-cafe 04 may 09
-if_ :: Monad m => m Bool -> m t -> m t -> m t
-if_ test yes no = do
-  b <- test
-  if b then yes else no
+-- | Return a singe draw from sampling function
+sampleIO :: Sampler a -> IO a
+sampleIO s = head `fmap` runSamplerIO s
 
+-- | Return a list of n draws from sampling function
+sampleNIO :: Int -> Sampler a -> IO [a]
+sampleNIO n s = take n `fmap` runSamplerIO s
 
+-- | Estimate the probability that a hypothesis is true (in the IO monad)
+eval :: Sampler Bool -> IO Double
+eval s = do
+  bs <- sampleNIO 1000 s 
+  return $ realToFrac (length (filter id bs)) / 1000
+ 
 
+                    
+
+-- | The joint distribution of two independent distributions
 joint :: Sampler a -> Sampler b -> Sampler (a,b)
 joint sf1 sf2 = liftM2 (,) sf1 sf2
 
+-- | The joint distribution of two distributions where one depends on the other
 jointConditional :: Sampler a -> (a-> Sampler b) -> Sampler (a,b)
 jointConditional sf1 condsf 
     = do x <- sf1
          y <- condsf x
          return (x,y)
-                                 
 
+--replicateM :: Monad m => Int -> m a -> m [a]
+--replicateM n ma = forM [1..n] $ const ma
+
+                            
+-- * Uniform distributions
+     
+-- | The unit interval U(0,1)
+unitSample :: Sampler Double
+unitSample = Sam randomDouble 
+
+-- | for x and y, the uniform distribution between x and y 
 uniform :: (Fractional a) => a -> a -> Sampler a
 uniform a b = (\x->(realToFrac x)*(b-a)+a) `fmap` unitSample
                 
+-- * Normally distributed sampling function
+
 --http://en.wikipedia.org/wiki/Box-Muller_transform
+-- | The univariate gaussian (normal) distribution defined by mean and standard deviation
 gauss :: (Floating b) => b -> b -> Sampler b
 gauss m sd = 
     do (u1,u2) <- (mapPair realToFrac) `fmap` joint unitSample unitSample
        return $ sqrt(-2*log(u1))*cos(2*pi*u2)*sd+m
+  where mapPair f (x,y) = (f x, f y)
 
+-- | Gaussians specialised for doubles
 gaussD :: Double -> Double -> Sampler Double
 gaussD m sd = 
     do (u1,u2) <- joint unitSample unitSample
@@ -94,30 +149,49 @@ gaussManyUnit 0 = return []
 gaussManyUnit n | odd n = liftM2 (:) (gauss 0 1) (gaussManyUnit (n-1))
                 | otherwise = do us <- forM [1..n] $ const $ unitSample
                                  return $ gaussTwoAtATime $ map realToFrac us
+  where 
+    gaussTwoAtATime :: Floating a =>  [a] -> [a]
+    gaussTwoAtATime (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATime rest
+    gaussTwoAtATime _ = []
 
 gaussManyUnitD :: Int -> Sampler [Double]
 gaussManyUnitD 0 = return []
 gaussManyUnitD n | odd n = liftM2 (:) (gauss 0 1) (gaussManyUnit (n-1))
                 | otherwise = do us <- forM [1..n] $ const $ unitSample
                                  return $ gaussTwoAtATimeD us
-                                 
+ where
+   gaussTwoAtATimeD :: [Double] -> [Double]
+   gaussTwoAtATimeD (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATimeD rest
+   gaussTwoAtATimeD _ = []
 
-gaussTwoAtATime :: Floating a =>  [a] -> [a]
-gaussTwoAtATime (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATime rest
-gaussTwoAtATime _ = []
+-- | Multivariate normal distribution
+multiNormal :: Vector Double -> Matrix Double -> Sampler (Vector Double)
+multiNormal mu sigma =
+  let a = chol sigma
+      k = dim mu
+  in do z <- fromList `fmap` gaussManyUnitD k
+--        return $ mu + (head $ toColumns $ a*asRow z)
+        let c = asColumn z
+        let r = asRow z
+        return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
 
-gaussTwoAtATimeD :: [Double] -> [Double]
-gaussTwoAtATimeD (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATime rest
-gaussTwoAtATimeD _ = []
-
-bernoulli :: Double -> Sampler Bool
-bernoulli p = (<p) `fmap` unitSample 
 
 --http://en.wikipedia.org/wiki/Log-normal_distribution#Generating_log-normally-distributed_random_variates
+
+-- | log-normal distribution <http://en.wikipedia.org/wiki/Log-normal_distribution>
 logNormal :: (Floating b) => b -> b -> Sampler b
 logNormal m sd = 
     do n <- gauss 0 1
        return $ exp $ m + sd * n
+
+
+-- * Other distribution
+
+-- | Bernoulli distribution. Returns a Boolean that is 'True' with probability 'p'
+bernoulli :: Double -> Sampler Bool
+bernoulli p = (<p) `fmap` unitSample 
+
+
 
 oneOf :: [a] -> Sampler a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
@@ -131,6 +205,7 @@ nOf n xs = sequence $ replicate n $ oneOf xs
   let diff = sort $ nub rnds
   print $ map (\x->(x, length $ filter (==x) rnds )) $ diff -}
 
+-- | Bayesian inference from likelihood and prior using rejection sampling. 
 bayesRejection :: (PDF.PDF a) -> Double -> Sampler a -> Sampler a
 bayesRejection p c q = bayes
     where bayes = do x <- q
@@ -139,17 +214,7 @@ bayesRejection p c q = bayes
                         then return x
                         else bayes      
 
-runSampler :: [Double] -> Sampler a -> [a]
-runSampler rs sf = let (x,rs') = (unSam sf) rs in x:runSampler rs' sf
-
-runSamplerIO :: Sampler a -> IO [a]
-runSamplerIO sf = do rnds <- randoms =<< getStdGen 
-                     return $ runSampler rnds sf
-
-runSamplerSysRan :: Sampler a -> IO [a]
-runSamplerSysRan sf = do 
-  rnds <- SR.randoms `fmap` SR.getStdGen
-  return $ runSampler rnds sf
+                     
 {-
 expectation :: Fractional a =>  Int -> Sampler a -> IO a
 expectation n sf = 
@@ -160,8 +225,8 @@ expectSD n sf =
     (meanSD . take n) `fmap` runSamplerIO sf
 -}                 
 
-mapPair :: (a->b) -> (a,a) -> (b,b)
-mapPair f (x,y) = (f x, f y)
+--mapPair :: (a->b) -> (a,a) -> (b,b)
+
 
 {-
 --http://cgi.cse.unsw.edu.au/~dons/blog/2008/05/16#fast
@@ -190,21 +255,26 @@ main = do u <- expectSD 1000000 $ gauss 0 1
 
 
 --poisson ::  ::  Double -> [Double] -> IO Double
-poisson rate =  (\u-> negate $ (log(1-u))/rate) `fmap` unitSample
+-- | Exponential distribution
+expDist rate =  (\u-> negate $ (log(1-u))/rate) `fmap` unitSample
+
+-- | Homogeneous poisson process defined by rate and duration
 poissonMany :: Double -> Double -> Sampler [Double]
 poissonMany rate tmax = aux 0 
     where aux last = do
-            next <- (+last) `fmap` poisson rate
+            next <- (+last) `fmap` expDist rate
             if next > tmax
                then return []
                else liftM2 (:) (return next) $ aux next
 
+-- | binomial distribution 
 binomial :: Int -> Double -> Sampler Int
 binomial n p = do
   bools <- forM [1..n] $ const $ fmap (<p) unitSample
   return $ length $ [t | t@True <- bools]
   
 -- from random-fu
+-- | Gamma distribution
 gamma :: Double -> Double -> Sampler Double
 gamma a b 
      | a < 1 
@@ -237,21 +307,15 @@ gamma a b
                             then return (b * d * v)
                             else go
 
+-- | inverse gamma distribution
 invGamma :: Double -> Double -> Sampler Double
 invGamma a b = recip `fmap` gamma a b
 
 --http://en.wikipedia.org/wiki/Multivariate_normal_distribution#Drawing_values_from_the_distribution
 --multiNormal :: Vector Double -> Matrix Double -> Sampler (Vector Double)
-multiNormal mu sigma =
-  let a = chol sigma
-      k = dim mu
-  in do z <- fromList `fmap` gaussManyUnitD k
---        return $ mu + (head $ toColumns $ a*asRow z)
-        let c = asColumn z
-        let r = asRow z
-        return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
 
 --http://www.xycoon.com/beta_randomnumbers.htm
+-- | beta distribution
 beta :: Int -> Int -> Sampler Double
 beta a b = 
     let gam n = do us <- forM [1..n] $ const unitSample

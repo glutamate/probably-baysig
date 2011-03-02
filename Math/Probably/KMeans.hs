@@ -1,4 +1,4 @@
---stolen from kemans!
+--stolen from kmeans!
 
 module Math.Probably.KMeans (kmeansOn, kmeans')
     where
