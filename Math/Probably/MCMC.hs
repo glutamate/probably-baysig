@@ -182,6 +182,27 @@ metropolisLnPCL st qSam lhf priorf
                       then Param (nj+1) (nt+1) (tt+1) lhstar nextw ini xstar
                       else Param nj (nt+1) (tt+1) lhi nextw ini xi
 
+metropolisLnPC :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> StochFun (Param a) (Param a)
+metropolisLnPC st qSam pdf
+    = let accept xi pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
+                             | otherwise = cond [(nanOrInf pi && nanOrInf pstar,
+                                                        error $ "metropolisLnPC "++st++" pi pi pstar :"++
+                                                                show (pi,pstar)++"\n"++
+                                                                show xi),
+                                                (nanOrInf pstar, -1), -- never accept                                
+                                                (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
+      in proc par@(Param j t tt lhi curw ini xi) -> do
+        let (nextw, nj, nt) = calcNextW curw j t tt
+        u <- sampler unitSample -< ()
+        xstar <- condDepSampler qSam -< (nextw, ini, xi)
+        let pi = if notNanInf lhi then lhi else pdf xi
+        let pstar = pdf xstar 
+        --let pi = priorf xi + lhi
+        returnA -< if u < accept par pi pstar
+                      then Param (nj+1) (nt+1) (tt+1) pstar nextw ini xstar
+                      else Param nj (nt+1) (tt+1) pi nextw ini xi
+
+
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
 
@@ -238,6 +259,14 @@ bayesMetHastLog propPDF proposal p inits =
     {-let p0 = p inits
     in-} Mrkv (metropolisHastingsLn propPDF proposal p) (inits) (id)
 
+--blockMetropolis :: Show a => (Double -> a-> a->Sampler a) -> P.PDF a -> a -> Markov a
+blockMetropolis :: Show a => (a->Sampler a) -> P.PDF a -> a -> Markov a
+blockMetropolis proposal pdf inits = 
+--   Mrkv (metropolisLnPC "" proposal pdf) (newParam inits) (unParam)
+   Mrkv (metropolisLn proposal pdf) (inits) id
+
+unParam (Param j t tt cLH curW ini x) = x
+
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
 
@@ -260,3 +289,62 @@ cond :: [(Bool, a)] -> a -> a
 cond [] x = x
 cond ((True, x):_) _ = x
 cond ((False, _):conds) x = cond conds x
+
+class MutateGaussian a where
+    mutGauss :: Double -> a -> Sampler a
+    mutGauss cv x = mutGaussAbs x cv x
+    mutGaussAbs :: a -> Double -> a -> Sampler a
+    --mutGaussAbs _ = mutGauss
+    mutGaussMany :: Double -> [a] -> Sampler [a]
+    mutGaussMany cv = mapM (mutGauss cv) 
+    nearlyEq :: Double -> a -> a -> Bool
+
+instance MutateGaussian Double where
+    mutGauss cv x = gaussD x (cv*x)
+    mutGaussAbs x0 cv x = gaussD x (cv*x0)
+    mutGaussMany cv xs = gaussManyD (map (\x-> (x,cv*x)) xs)
+    nearlyEq tol x y = abs(x-y)<tol  
+
+instance MutateGaussian Int where
+    mutGaussAbs _ cv' x = do
+      u <- unitSample
+      let cv = 0.5 -- max 0 $ min 0.4 (1/cv')
+      case u of 
+        _ | u < 0.5 -> return $ x-1
+--          | u > 0.5 -> return $ x+1
+          | otherwise -> return $ x+1
+    nearlyEq _ x y = x==y
+
+{-instance MutateGaussian Int where
+    mutGauss cv x = round `fmap` gaussD (realToFrac x) (cv*realToFrac x)
+    nearlyEq tol x y = x==y -}
+
+instance MutateGaussian a => MutateGaussian [a] where
+    mutGauss cv xs = mutGaussMany cv xs 
+    mutGaussAbs xs0 cv xs =  mapM (\(x0,x)-> mutGaussAbs x0 cv x) $ zip xs0 xs
+    nearlyEq tol xs ys = length xs == length ys && (all (uncurry $ nearlyEq tol) $ zip xs ys )
+
+instance (MutateGaussian a, MutateGaussian b) => MutateGaussian (a,b) where
+    mutGauss cv (x,y) = liftM2 (,) (mutGauss cv x) (mutGauss cv y)
+    mutGaussAbs (x0, y0) cv (x,y) = liftM2 (,) (mutGaussAbs x0 cv x) (mutGaussAbs y0 cv y)
+    nearlyEq t (x,y) (x1,y1) = nearlyEq t x x1 && nearlyEq t y y1
+
+instance (MutateGaussian a, MutateGaussian b, MutateGaussian c) => MutateGaussian (a,b,c) where
+    mutGauss cv (x,y,z) = liftM3 (,,) (mutGauss cv x) (mutGauss cv y) (mutGauss cv z)
+    mutGaussAbs (x0, y0, z0) cv (x,y,z) = 
+        liftM3 (,,) (mutGaussAbs x0 cv x) (mutGaussAbs y0 cv y) (mutGaussAbs z0 cv z)
+    nearlyEq t (x,y, z) (x1,y1, z1) = nearlyEq t x x1 && nearlyEq t y y1 && nearlyEq t z z1
+
+instance (MutateGaussian a, MutateGaussian b, MutateGaussian c, MutateGaussian d) => MutateGaussian (a,b,c,d) where
+    mutGauss cv (x,y,z,w) = liftM4 (,,,) (mutGauss cv x) (mutGauss cv y) (mutGauss cv z) (mutGauss cv w)
+    mutGaussAbs (x0, y0, z0, w0) cv (x,y,z,w) = 
+        liftM4 (,,,) (mutGaussAbs x0 cv x) (mutGaussAbs y0 cv y) (mutGaussAbs z0 cv z) (mutGaussAbs w0 cv w)
+    nearlyEq t (x,y, z, w) (x1,y1, z1, w1) = nearlyEq t x x1 && nearlyEq t y y1 && nearlyEq t z z1 && nearlyEq t w w1
+
+writeInChunks ::  String -> Int ->   [[Double]] -> IO ()
+writeInChunks = writeInChunks' 0
+    where writeInChunks' _ _ _  [] = return ()
+          writeInChunks' counter fnm chsize xs = do
+            let (out, rest) = splitAt chsize xs
+            writeFile (fnm++"_file"++(show counter)++".mcmc") $ unlines $ map show out
+            writeInChunks' (counter+1) fnm chsize rest
