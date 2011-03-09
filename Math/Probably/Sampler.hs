@@ -84,9 +84,9 @@ sampleNIO :: Int -> Sampler a -> IO [a]
 sampleNIO n s = take n `fmap` runSamplerIO s
 
 -- | Estimate the probability that a hypothesis is true (in the IO monad)
-eval :: Sampler Bool -> IO Double
+eval :: Sampler Bool -> Sampler Double
 eval s = do
-  bs <- sampleNIO 1000 s 
+  bs <- replicateM 1000 s 
   return $ realToFrac (length (filter id bs)) / 1000
  
 
@@ -320,7 +320,11 @@ beta :: Int -> Int -> Sampler Double
 beta a b = 
     let gam n = do us <- forM [1..n] $ const unitSample
                    return $ log $ product us
-    in do gama1 <- gam a
-          gama2 <- gam a
-          gamb <- gam b
-          return $ gama1/(gama2+gamb)
+    in do gama1 <- gamma (realToFrac a) 1
+--          gama2 <- gamma (realToFrac a) 1
+
+
+          gamb <- gamma (realToFrac b) 1
+          return $ gama1/(gama1+gamb)
+
+tbeta = sampleNIO 100 $ beta 1 1
