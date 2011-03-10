@@ -99,20 +99,21 @@ data Param a = Param { jumpCount :: !Int,
                        totalTotalCount :: !Int,
                        cachedLH :: Double,
                        currentWidth :: !Double,
+                       adaptive :: !Int,
                        initial :: !a,
                        unP :: !a } 
                | NonInitialisedParam deriving Show
 
 instance Binary a => Binary (Param a) where
-    put (Param j t tt cLH curW ini x) = 
-      put (j,t, tt, cLH, curW, ini, x)
+    put (Param j t tt cLH curW ada ini x) = 
+      put (j,t, tt, cLH, curW , ada ,ini, x)
     get = do
-      (j,t, tt, cLH, curW, ini, x) <- get
-      return $ Param j t tt cLH curW ini x
+      (j,t, tt, cLH, curW, ada, ini, x) <- get
+      return $ Param j t tt cLH curW ada ini x
 
 
 newParam :: a -> Param a
-newParam x = Param 0 0 0 (1/0) 1 x x
+newParam x = Param 0 0 0 (1/0) 1 200 x x
 
 condDepSampler :: (Double -> b-> b->Sampler a) -> StochFun (Double,b,b) a
 condDepSampler dqSam = SF $ \((w,ini,x),dbls) -> unSam (dqSam w ini x) dbls
@@ -120,8 +121,8 @@ condDepSampler dqSam = SF $ \((w,ini,x),dbls) -> unSam (dqSam w ini x) dbls
 metSample1P :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> (Param a) -> Sampler (Param a)
 metSample1P st prop pdf = uncondSampler $ metropolisLnP st prop pdf
 
-metSample1PCL :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
-metSample1PCL st prop lh prior = uncondSampler $ metropolisLnPCL st prop lh prior
+--metSample1PCL :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a-> (Param a) -> Sampler (Param a)
+--metSample1PCL st prop lh prior = uncondSampler $ metropolisLnPCL st prop lh prior
 
 
 metropolisLnP ::  Show a => String -> (Double -> a-> a-> Sampler a) ->  P.PDF a -> StochFun (Param a) (Param a)
@@ -133,25 +134,26 @@ metropolisLnP st qSam p
                                                                 show xi),
                                                  (nanOrInf pstar, -1), -- never accept
                                                  (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc par@(Param j t tt _ curw ini xi) -> do
-        let (nextw, nj, nt) = calcNextW curw j t tt
+      in proc par@(Param j t tt _ curw ada ini xi) -> do
+        let (nextw, nj, nt) = calcNextW ada curw j t tt
         u <- sampler unitSample -< ()
         xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let pstar = p xstar 
         let pi = p xi 
         returnA -< if u < accept par pi pstar
-                      then Param (nj+1) (nt+1) (tt+1) pstar nextw ini xstar
-                      else Param nj (nt+1) (tt+1) pi nextw ini xi
+                      then Param (nj+1) (nt+1) (tt+1) pstar nextw ada ini xstar
+                      else Param nj (nt+1) (tt+1) pi nextw ada ini xi
 
 x `divides` y = y `mod` x == 0
 
-calcNextW w j t tt | mutFreq `divides` t= 
+calcNextW 0 w j t _ = (w, j, t)
+calcNextW mutFreq w j t tt | mutFreq `divides` t= 
                      let jf = realToFrac j / realToFrac t 
                          nxtW = w*nextW jf in                    
                     {-trace (show (w, nxtW, j, t)) -} (nxtW, 0, 0)
                    | otherwise = (w, j, t)
-    where mutFreq = cond [(t<20000, 2000),
-                          (t<200000, 5000)] 5000000
+{-    where mutFreq = cond [(t<20000, 2000),
+                          (t<200000, 5000)] 5000000 -}
                        
 
 nextW jf | jf > 0.80 = 3
@@ -161,7 +163,7 @@ nextW jf | jf > 0.80 = 3
          | jf < 0.20 = 0.8
          | otherwise = 1
 
-metropolisLnPCL :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
+{-metropolisLnPCL :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> P.PDF a -> StochFun (Param a) (Param a)
 metropolisLnPCL st qSam lhf priorf 
     = let accept xi pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
                              | otherwise = cond [(nanOrInf pi && nanOrInf pstar,
@@ -201,7 +203,7 @@ metropolisLnPC st qSam pdf
         returnA -< if u < accept par pi pstar
                       then Param (nj+1) (nt+1) (tt+1) pstar nextw ini xstar
                       else Param nj (nt+1) (tt+1) pi nextw ini xi
-
+-}
 
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
@@ -260,12 +262,14 @@ bayesMetHastLog propPDF proposal p inits =
     in-} Mrkv (metropolisHastingsLn propPDF proposal p) (inits) (id)
 
 --blockMetropolis :: Show a => (Double -> a-> a->Sampler a) -> P.PDF a -> a -> Markov a
-blockMetropolis :: Show a => (a->Sampler a) -> P.PDF a -> a -> Markov a
+{-blockMetropolis :: Show a => (a->Sampler a) -> P.PDF a -> a -> Markov a
 blockMetropolis proposal pdf inits = 
 --   Mrkv (metropolisLnPC "" proposal pdf) (newParam inits) (unParam)
-   Mrkv (metropolisLn proposal pdf) (inits) id
+   Mrkv (metropolisLn proposal pdf) (inits) id -}
 
-unParam (Param j t tt cLH curW ini x) = x
+--unParam (Param j t tt cLH curW _ ini x) = x
+
+stopAdaptation p = p { adaptive = 0 } 
 
 manyLike :: (theta -> a -> P.PDF b) -> ([(a,b)] -> P.PDF theta)
 manyLike lh1 = \xys -> \theta -> product $ map (\(x,y) -> lh1 theta x y) xys
