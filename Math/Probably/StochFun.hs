@@ -79,7 +79,7 @@ runMarkovFor ::  Int -> Seed -> Markov a -> (a, Seed)
 runMarkovFor n dbls m@(Mrkv (SF sf) x c) = onFst c $ run n dbls sf x
     where run 0 seed f y = (y, seed)
           run n dbs f y = let (y', dbs') = f (y, dbs)
-                          in run (n-1) dbs' f y'
+                          in y' `seq` n `seq` run (n-1) dbs' f y'
           onFst f (x,y) = (f x, y)
 
 

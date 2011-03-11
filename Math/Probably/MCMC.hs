@@ -183,7 +183,7 @@ metropolisLnPCL st qSam lhf priorf
         returnA -< if u < accept par pi pstar
                       then Param (nj+1) (nt+1) (tt+1) lhstar nextw ini xstar
                       else Param nj (nt+1) (tt+1) lhi nextw ini xi
-
+-}
 metropolisLnPC :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> StochFun (Param a) (Param a)
 metropolisLnPC st qSam pdf
     = let accept xi pi pstar | notNanInf2 pi pstar =  min 1 $ exp (pstar - pi)
@@ -193,17 +193,29 @@ metropolisLnPC st qSam pdf
                                                                 show xi),
                                                 (nanOrInf pstar, -1), -- never accept                                
                                                 (nanOrInf pi, 2)] $ error "metropolisLn: the impossible happend"
-      in proc par@(Param j t tt lhi curw ini xi) -> do
-        let (nextw, nj, nt) = calcNextW curw j t tt
+      in proc par@(Param j t tt lhi curw ada ini xi) -> do
+        let (nextw, nj, nt) = calcNextW ada curw j t tt
         u <- sampler unitSample -< ()
         xstar <- condDepSampler qSam -< (nextw, ini, xi)
         let pi = if notNanInf lhi then lhi else pdf xi
         let pstar = pdf xstar 
         --let pi = priorf xi + lhi
         returnA -< if u < accept par pi pstar
-                      then Param (nj+1) (nt+1) (tt+1) pstar nextw ini xstar
-                      else Param nj (nt+1) (tt+1) pi nextw ini xi
--}
+                      then Param (nj+1) (nt+1) (tt+1) pstar nextw ada ini xstar
+                      else Param nj (nt+1) (tt+1) pi nextw ada ini xi
+greedyLnPC :: Show a => String -> (Double -> a -> a -> Sampler a) -> P.PDF a -> StochFun (Param a) (Param a)
+greedyLnPC st qSam pdf =
+      proc par@(Param j t tt lhi curw ada ini xi) -> do
+        u <- sampler unitSample -< ()
+        xstar <- condDepSampler qSam -< (curw, ini, xi)
+        let pi = if notNanInf lhi then lhi else pdf xi
+        let pstar = pdf xstar 
+        --let pi = priorf xi + lhi
+        returnA -< if pstar > pi -- u < accept par pi pstar
+                      then Param j t (tt) pstar curw ada ini xstar
+                      else Param j t (tt) pi    curw ada ini xi
+
+
 
 traceIt :: Show a => a -> a
 traceIt x = trace (show x) x
@@ -314,9 +326,9 @@ instance MutateGaussian Int where
       u <- unitSample
       let cv = 0.5 -- max 0 $ min 0.4 (1/cv')
       case u of 
-        _ | u < 0.5 -> return $ x-1
---          | u > 0.5 -> return $ x+1
-          | otherwise -> return $ x+1
+        _ | u < 0.3 -> return $ x-1
+          | u > 0.7 -> return $ x+1
+          | otherwise -> return $ x
     nearlyEq _ x y = x==y
 
 {-instance MutateGaussian Int where
