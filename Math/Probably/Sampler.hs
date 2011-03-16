@@ -40,6 +40,9 @@ import Control.Applicative
 import qualified Math.Probably.PDF as PDF
 import Numeric.LinearAlgebra
 import System.Random.Mersenne.Pure64
+import System.Environment
+import Data.List
+import Data.Maybe
 
 type Seed = PureMT
 
@@ -68,7 +71,11 @@ runSampler pmt s@(Sam sf)
 
 -- | Get a seed
 getSeedIO :: IO Seed
-getSeedIO = newPureMT
+getSeedIO = do
+   args <- getArgs
+   case mapMaybe (stripPrefix "--seed=") args of 
+      [] ->  newPureMT
+      sdStr:_ -> return $ pureMT $ read sdStr
 
 -- | Return an infinite list of draws from sampling function in the IO monad
 runSamplerIO :: Sampler a -> IO [a]
