@@ -144,6 +144,20 @@ metropolisLnP st qSam p
                       then Param (nj+1) (nt+1) (tt+1) pstar nextw ada ini xstar
                       else Param nj (nt+1) (tt+1) pi nextw ada ini xi
 
+metropolisLnP2 ::  Show a => String -> (Double -> a-> a-> Sampler a) ->  (a -> a-> Double) -> StochFun (Param a) (Param a)
+metropolisLnP2 st qSam p2
+    = let accept xi pdiff    | notNanInf pdiff =  exp pdiff
+                             | otherwise = -1 
+      in proc par@(Param j t tt _ curw ada ini xi) -> do
+        let (nextw, nj, nt) = calcNextW ada curw j t tt
+        u <- sampler unitSample -< ()
+        xstar <- condDepSampler qSam -< (nextw, ini, xi)
+        let pdiff = p2 xstar xi
+        returnA -< if u < accept par pdiff
+                      then Param (nj+1) (nt+1) (tt+1) pdiff nextw ada ini xstar
+                      else Param nj (nt+1) (tt+1) pdiff nextw ada ini xi
+
+
 x `divides` y = y `mod` x == 0
 
 calcNextW 0 w j t _ = (w, j, t)
