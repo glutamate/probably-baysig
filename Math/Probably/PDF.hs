@@ -89,6 +89,12 @@ multiNormal mu sigma =
       mat1 = head . head . toLists
   in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
+multiNormalByInv :: Double -> Matrix Double -> Vector Double -> PDF (Vector Double)
+multiNormalByInv lndetSigma invSigma mu = 
+  let k = realToFrac $ dim mu
+      mat1 = head . head . toLists
+  in \x-> log 1 - (k/2)*log(2*pi) - lndetSigma/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
+
 {-mu1 = 2 |> [0, 0::Double]
 sig1 = (2><2)[1::Double, 0,
               0, 1]

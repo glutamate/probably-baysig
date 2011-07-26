@@ -381,6 +381,136 @@ instance (MutateGaussian a, MutateGaussian b, MutateGaussian c, MutateGaussian d
         liftM4 (,,,) (mutGaussAbs x0 cv x) (mutGaussAbs y0 cv y) (mutGaussAbs z0 cv z) (mutGaussAbs w0 cv w)
     nearlyEq t (x,y, z, w) (x1,y1, z1, w1) = nearlyEq t x x1 && nearlyEq t y y1 && nearlyEq t z z1 && nearlyEq t w w1
 
+instance (MutateGaussian a1, 
+          MutateGaussian a2, 
+          MutateGaussian a3, 
+          MutateGaussian a4, 
+          MutateGaussian a5) 
+          => MutateGaussian (a1,a2,a3,a4,a5) where
+    mutGaussAbs (x0, y0, z0, w0,w0') cv (x,y,z,w,w') = 
+        liftM5 (,,,,) (mutGaussAbs x0 cv x) 
+                      (mutGaussAbs y0 cv y) 
+                      (mutGaussAbs z0 cv z)
+                      (mutGaussAbs w0 cv w)
+                      (mutGaussAbs w0' cv w')
+    nearlyEq t (x,y, z, w, w') 
+               (x1,y1, z1, w1,w1') 
+             =    nearlyEq t x x1 
+               && nearlyEq t y y1 
+               && nearlyEq t z z1 
+               && nearlyEq t w w1 
+               && nearlyEq t w' w1'
+
+instance (MutateGaussian a1, 
+          MutateGaussian a2, 
+          MutateGaussian a3, 
+          MutateGaussian a4, 
+          MutateGaussian a5, 
+          MutateGaussian a6) 
+          => MutateGaussian (a1,a2,a3,a4,a5,a6) where
+    mutGaussAbs (x0, y0, z0, w0,w0',s0) cv (x,y,z,w,w',s) = 
+        return (,,,,,) `ap` (mutGaussAbs x0 cv x) 
+                       `ap` (mutGaussAbs y0 cv y) 
+                       `ap` (mutGaussAbs z0 cv z)
+                       `ap` (mutGaussAbs w0 cv w)
+                       `ap` (mutGaussAbs w0' cv w')
+                       `ap` (mutGaussAbs s0 cv s)
+    nearlyEq t (x,y, z, w, w',s) 
+               (x1,y1, z1, w1,w1',s1) 
+             =    nearlyEq t x x1 
+               && nearlyEq t y y1 
+               && nearlyEq t z z1 
+               && nearlyEq t w w1 
+               && nearlyEq t w' w1'
+               && nearlyEq t s s1
+
+instance (MutateGaussian a1, 
+          MutateGaussian a2, 
+          MutateGaussian a3, 
+          MutateGaussian a4, 
+          MutateGaussian a5, 
+          MutateGaussian a6, 
+          MutateGaussian a7) 
+          => MutateGaussian (a1,a2,a3,a4,a5,a6,a7) where
+    mutGaussAbs (x0, y0, z0, w0,w0',s0,t0) cv (x,y,z,w,w',s,t) = 
+        return (,,,,,,) `ap` (mutGaussAbs x0 cv x) 
+                       `ap` (mutGaussAbs y0 cv y) 
+                       `ap` (mutGaussAbs z0 cv z)
+                       `ap` (mutGaussAbs w0 cv w)
+                       `ap` (mutGaussAbs w0' cv w')
+                       `ap` (mutGaussAbs s0 cv s)
+                       `ap` (mutGaussAbs t0 cv t)
+    nearlyEq t (x,y, z, w, w',s,tv) 
+               (x1,y1, z1, w1,w1',s1,tv1) 
+             =    nearlyEq t x x1 
+               && nearlyEq t y y1 
+               && nearlyEq t z z1 
+               && nearlyEq t w w1 
+               && nearlyEq t w' w1'
+               && nearlyEq t s s1
+               && nearlyEq t tv tv1
+
+instance (MutateGaussian a1, 
+          MutateGaussian a2, 
+          MutateGaussian a3, 
+          MutateGaussian a4, 
+          MutateGaussian a5, 
+          MutateGaussian a6, 
+          MutateGaussian a7,
+          MutateGaussian a8) 
+          => MutateGaussian (a1,a2,a3,a4,a5,a6,a7,a8) where
+    mutGaussAbs (x0, y0, z0, w0,w0',s0,t0,r0) cv (x,y,z,w,w',s,t,r) = 
+        return (,,,,,,,) `ap` (mutGaussAbs x0 cv x) 
+                       `ap` (mutGaussAbs y0 cv y) 
+                       `ap` (mutGaussAbs z0 cv z)
+                       `ap` (mutGaussAbs w0 cv w)
+                       `ap` (mutGaussAbs w0' cv w')
+                       `ap` (mutGaussAbs s0 cv s)
+                       `ap` (mutGaussAbs t0 cv t)
+                       `ap` (mutGaussAbs r0 cv r)
+    nearlyEq t (x,y, z, w, w',s,tv,r) 
+               (x1,y1, z1, w1,w1',s1,tv1,r1) 
+             =    nearlyEq t x x1 
+               && nearlyEq t y y1 
+               && nearlyEq t z z1 
+               && nearlyEq t w w1 
+               && nearlyEq t w' w1'
+               && nearlyEq t s s1
+               && nearlyEq t tv tv1
+               && nearlyEq t r r1
+
+instance (MutateGaussian a1, 
+          MutateGaussian a2, 
+          MutateGaussian a3, 
+          MutateGaussian a4, 
+          MutateGaussian a5, 
+          MutateGaussian a6, 
+          MutateGaussian a7,
+          MutateGaussian a8, 
+          MutateGaussian a9) 
+          => MutateGaussian (a1,a2,a3,a4,a5,a6,a7,a8,a9) where
+    mutGaussAbs (x0, y0, z0, w0,w0',s0,t0,r0,q0) cv (x,y,z,w,w',s,t,r,q) = 
+        return (,,,,,,,,) `ap` (mutGaussAbs x0 cv x) 
+                       `ap` (mutGaussAbs y0 cv y) 
+                       `ap` (mutGaussAbs z0 cv z)
+                       `ap` (mutGaussAbs w0 cv w)
+                       `ap` (mutGaussAbs w0' cv w')
+                       `ap` (mutGaussAbs s0 cv s)
+                       `ap` (mutGaussAbs t0 cv t)
+                       `ap` (mutGaussAbs r0 cv r)
+                       `ap` (mutGaussAbs q0 cv q)
+    nearlyEq t (x,y, z, w, w',s,tv,r,q) 
+               (x1,y1, z1, w1,w1',s1,tv1,r1,q1) 
+             =    nearlyEq t x x1 
+               && nearlyEq t y y1 
+               && nearlyEq t z z1 
+               && nearlyEq t w w1 
+               && nearlyEq t w' w1'
+               && nearlyEq t s s1
+               && nearlyEq t tv tv1
+               && nearlyEq t r r1
+               && nearlyEq t q q1
+
 writeInChunks ::  String -> Int ->   [[Double]] -> IO ()
 writeInChunks = writeInChunks' 0
     where writeInChunks' _ _ _  [] = return ()
