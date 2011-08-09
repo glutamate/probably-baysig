@@ -1,4 +1,4 @@
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE Arrows, ViewPatterns #-}
 
 module Math.Probably.MCMC where
 
@@ -14,6 +14,9 @@ import Math.Probably.FoldingStats
 import Control.Monad
 import Debug.Trace
 import Data.Binary
+import qualified Numeric.LinearAlgebra as L
+import qualified Data.Packed.Matrix as L
+
 
 --http://videolectures.net/mlss08au_freitas_asm/
 rejection :: Double -> P.PDF a -> Sampler a -> P.PDF a -> Sampler a
@@ -518,3 +521,70 @@ writeInChunks = writeInChunks' 0
             let (out, rest) = splitAt chsize xs
             writeFile (fnm++"_file"++(show counter)++".mcmc") $ unlines $ map show out
             writeInChunks' (counter+1) fnm chsize rest
+
+
+--- Adaptive Metropolis from Haario et al
+
+data AMPar = AMPar { ampPar :: L.Vector Double,
+                     ampMean :: L.Vector Double,
+                     ampCov :: L.Matrix Double,
+                     count :: Int }
+
+empiricalCovariance :: [L.Vector Double] -> L.Matrix Double
+empiricalCovariance xs
+   = let k = length xs 
+         barxk = L.scaleRecip (realToFrac $ k+1) $ sum xs
+         m1 = sum $ map (\xv-> L.outer xv xv) xs
+         m2 = L.scale (realToFrac $ k+1) $ L.outer barxk barxk
+     in L.scaleRecip (realToFrac k) $ m1 - m2
+
+empiricalMean :: [L.Vector Double] -> L.Vector Double
+empiricalMean vecs = L.scaleRecip (realToFrac $ length vecs) $ sum vecs
+
+initialAdaMet :: Int -> P.PDF (L.Vector Double) -> (L.Vector Double -> L.Vector Double) -> 
+                 L.Vector Double -> Sampler AMPar
+initialAdaMet n pdf postpropose init = do
+              let propose cur = fmap (postpropose . L.fromList) $ 
+                                forM (zip (L.toList cur) (L.toList init)) 
+                                     $ \(x,ini) -> gaussD x (ini*5e-3)
+              let oneStep xi = do
+                    xstar <- propose xi
+                    u <- unitSample
+                    let pi = pdf xi
+                    let pstar = pdf xstar
+                    return $ if u < exp (pstar - pi)
+                                then xstar
+                                else xi   
+              vecs <- runChainS n init oneStep
+              let cov = empiricalCovariance vecs              
+              let mn = empiricalMean vecs
+              return $ AMPar (last vecs) mn cov n
+     
+runChainS :: Int -> a -> (a -> Sampler a) -> Sampler [a]
+runChainS 0 _ _ = return []
+runChainS n x sam = do 
+       y <- sam x
+       ys <- runChainS (n-1) y sam
+       return $ y:ys
+
+
+adaMet :: P.PDF (L.Vector Double) -> 
+          (L.Vector Double -> L.Vector Double) ->
+          AMPar -> Sampler AMPar 
+adaMet pdf postPropose (AMPar xi mn cov (realToFrac -> t)) = do
+   --propose
+   let dims = L.dim xi
+   let scalar = (2.4*2.4/realToFrac dims)::Double
+   xstar <- fmap postPropose $ multiNormal xi (L.scale scalar cov)
+   u <- unitSample
+   --eval
+   let pi = pdf xi
+   let pstar = pdf xstar
+   let xaccept = if u < exp (pstar - pi)
+                    then xstar
+                    else xi   
+   let nmn = L.scaleRecip (t+1) $ xaccept + L.scale t mn
+   let m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
+       ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
+   return $ AMPar xaccept nmn ncov (round $ t+1)
+
