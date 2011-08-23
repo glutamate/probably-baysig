@@ -174,7 +174,7 @@ gaussManyUnitD n | odd n = liftM2 (:) (gauss 0 1) (gaussManyUnit (n-1))
 -- | Multivariate normal distribution
 multiNormal :: Vector Double -> Matrix Double -> Sampler (Vector Double)
 multiNormal mu sigma =
-  let a = chol sigma
+  let a = trans $ chol sigma
       k = dim mu
   in do z <- fromList `fmap` gaussManyUnitD k
 --        return $ mu + (head $ toColumns $ a*asRow z)
