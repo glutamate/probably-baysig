@@ -35,8 +35,8 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.StochFun,
 		     Math.Probably.MCMC,
 --		     Math.Probably.KMeans,
-		     Math.Probably.GlobalRandoms
---		     Math.Probably.Distribution,
+		     Math.Probably.GlobalRandoms,
+		     Math.Probably.Distribution
 --		     Math.Probably.JAGS
 
 			

@@ -258,10 +258,11 @@ metropolisLog qSam p
                       then (xstar, pstar)
                       else (xi, pi)
 
-samplingImportanceResampling :: Ord a => [(a,Double)] -> Sampler a
+samplingImportanceResampling :: [(a,Double)] -> Sampler a
 samplingImportanceResampling weightedSamples = 
-  let sumWeights = sum $ map snd weightedSamples
-      cummWeightedSamples = scanl (\(_,csum) (x,w) -> (x,csum+w)) (undefined,0) $ sortBy (comparing fst) weightedSamples
+  let smallest = foldl' (\acc (v,logpdf) -> min acc logpdf) (snd $ head weightedSamples) weightedSamples
+      sumWeights = sum $ map (exp . (subtract smallest) . snd) weightedSamples
+      cummWeightedSamples = scanl (\(_,csum) (x,w) -> (x,csum+exp (w-smallest))) (undefined,0) $ sortBy (comparing snd) weightedSamples
   in do
     u <- unitSample
     return . fst . fromJust $ find ((>=u*sumWeights) . snd) cummWeightedSamples
@@ -546,12 +547,12 @@ outerSame v = L.outer v v
 empiricalMean :: [L.Vector Double] -> L.Vector Double
 empiricalMean vecs = L.scale (recip $ realToFrac $ length vecs) $ sum vecs
 
-initialAdaMet :: Int -> P.PDF (L.Vector Double) -> 
+initialAdaMet :: Int -> Double ->P.PDF (L.Vector Double) -> 
                  L.Vector Double -> Sampler AMPar
-initialAdaMet n pdf  init = do
+initialAdaMet n iniw pdf  init = do
               let propose cur = fmap ( L.fromList) $ 
                                 forM (zip (L.toList cur) (L.toList init)) 
-                                     $ \(x,ini) -> gaussD x (ini*5e-3)
+                                     $ \(x,ini) -> gaussD x (ini*iniw)
               let oneStep xi = do
                     xstar <- propose xi
                     u <- unitSample
