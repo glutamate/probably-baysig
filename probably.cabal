@@ -35,10 +35,11 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.StochFun,
 		     Math.Probably.MCMC,
 --		     Math.Probably.KMeans,
-		     Math.Probably.GlobalRandoms
+		     Math.Probably.GlobalRandoms,
 --		     Math.Probably.Distribution,
 --		     Math.Probably.JAGS
+                     Math.Probably.RandIO
 
 			
 Build-depends:       base, mersenne-random-pure64, 
-                     binary, hmatrix>=0.11.0.0
+                     binary, hmatrix>=0.11.0.0, mtl
