@@ -1,7 +1,7 @@
 module Math.Probably.Student where
 
 import Math.Probably.FoldingStats
-
+import Numeric.LinearAlgebra
 --http://www.haskell.org/haskellwiki/Gamma_and_Beta_function
 cof :: [Double]
 cof = [76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.001208650973866179,-0.000005395239384953]
@@ -28,3 +28,11 @@ oneSampleT v0 = fmap (\(mean,sd,n)-> (mean - v0)/(sd/(sqrt n))) meanSDNF
 
 pairedSampleT  = before (fmap (\(mean,sd,n)-> (mean)/(sd/(sqrt n))) meanSDNF)
                         (uncurry (-))
+
+tTerm1 :: Int -> Double
+tTerm1 df | df <= 10 = xs@>df
+          | otherwise = term df
+  where xs = fromList $ map term [1..10]
+        term nu = gammaln ((realToFrac nu+1)/2) - log(realToFrac nu*pi)/2 - gammaln (realToFrac nu/2)
+
+tDist df t = tTerm1 df - (realToFrac df +1/2) * log (1+(t*t)/(realToFrac df))
