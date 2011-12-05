@@ -24,6 +24,7 @@ instance ProperDistribution Normal where
       sampler (Normal mu sd) = S.gauss mu sd
       estimator = fmap (uncurry Normal) meanSDF
 
+
 data Gamma = Gamma Double Double
 
 data Uniform a = Uniform a a

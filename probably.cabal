@@ -34,9 +34,10 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.LinearPDF,
 		     Math.Probably.StochFun,
 		     Math.Probably.MCMC,
---		     Math.Probably.KMeans,
+		     Math.Probably.KMeans,
 		     Math.Probably.GlobalRandoms,
 		     Math.Probably.Distribution,
+		     Math.Probably.NelderMead,
 --		     Math.Probably.JAGS
                      Math.Probably.RandIO
 
