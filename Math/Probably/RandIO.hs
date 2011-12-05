@@ -14,7 +14,7 @@ import Control.Monad.Trans
 import Control.Monad
 import Data.IORef
 import qualified Numeric.LinearAlgebra as L
-
+import Math.Probably.NelderMead
 type RIO = S.StateT Seed IO
 
 runRIO :: RIO a -> IO a
@@ -49,6 +49,30 @@ runChainRIO n showit init sam = do
                                  putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++showit xx
                              go (nn-1) ns xx $ xx:xs
            chsz = n `div` 50
+
+data AdaMetRunPars = AdaMetRunPars 
+     { nmTol :: Double,
+       displayIt :: Maybe (L.Vector Double -> String),
+       ninitial :: Int,
+       nsam :: Int }
+
+defaultAM = AdaMetRunPars 0.5 Nothing 500 1000
+
+nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) 
+            -> L.Vector Double -> RIO AMPar --[L.Vector Double]
+nmAdaMet (AdaMetRunPars nmtol dispit ninit nsam) pdf init = do
+     let iniSim = genInitial (negate . pdf) 0.1 $ init
+     io $ print iniSim
+     let finalSim =  goNm (negate . pdf) nmtol iniSim
+     io $ print finalSim
+     let (maxPost,hess) = hessianFromSimplex (negate . pdf) finalSim 
+     io $ print maxPost
+     io $ print hess
+     iniampar <- sample $ initialAdaMetFromCov ninit pdf maxPost hess
+     io $ print iniampar
+     runAndDiscard nsam (show . ampPar) iniampar $ adaMet False (pdf)  
+--     runAdaMetRIO nsam False iniampar pdf
+                                      
 
 runAdaMetRIO :: Int -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
 runAdaMetRIO n freeze ampar pdf = do

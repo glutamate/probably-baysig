@@ -23,6 +23,7 @@ m2 = fromList [55.1,20.3]
 
 main = runRIO $ do
   io $ print $ pdf mean
+  ap <- nmAdaMet (defaultAM {nsam =1000000}) pdf (fromList [3.0,0.8])
   {-iniampar <- sample $ initialAdaMet 500 5e-3 (pdf) $ fromList [30.0,8.0]
   io $ print iniampar
   froampar <- runAndDiscard 5000 (show . ampPar) iniampar $ adaMet False (pdf)
@@ -54,28 +55,30 @@ instance Bounded Double where
   minBound = -1e80
   maxBound = 1e80
 
---http://www.caspur.it/risorse/softappl/doc/sas_docs/ormp/chap5/sect28.htm
-hessianFromSimplex :: (Vector Double -> Double) -> Simplex -> Matrix Double
+
+hessianFromSimplex :: (Vector Double -> Double) -> Simplex -> (Vector Double, Matrix Double)
 hessianFromSimplex f sim = 
   let mat :: [Vector Double]
       mat = toRows $ fromColumns $ map fst sim
-      swings' = flip map mat $ \vals -> runStat (meanF `both` minF `both` maxF) $ toList vals
-      swings = flip map swings' $ \((y0, ymin),ymax) -> (y0, max (ymax-y0) (y0-ymin))
+      fsw ((y0, ymin),ymax) = (y0, max (ymax-y0) (y0-ymin))
+      swings = flip map mat $ runStat (fmap fsw $ meanF `both` minF `both` maxF) . toList 
       n = length swings
       xv = fromList $ map fst swings
       fxv = f  xv
       units = flip map [0..n-1] $ \d -> buildVector n $ \i -> if i ==d then snd $ swings!!i else 0
-
-      hess = buildMatrix n n $ \(i,j) ->(  (f $ xv + units!!i + units!!j)
-                                         - (f $ xv + units!!i)
-                                         - (f $ xv + units!!j)
-                                         + (f xv) ) / (snd $ swings!!i) * (snd $ swings!!j)
-      hess1= buildMatrix n n $ \(i,j) ->(  (f $ xv + units!!i + units!!j)
-                                         - (f $ xv + units!!i - units!!j)
-                                         - (f $ xv - units!!i + units!!j)
-                                         + (f $ xv - units!!i - units!!j) ) / (4*(snd $ swings!!i) * (snd $ swings!!j))
+      --http://www.caspur.it/risorse/softappl/doc/sas_docs/ormp/chap5/sect28.htm
+      fhess (i,j) | i>=j = 
+                      ((f $ xv + units!!i + units!!j)
+                       - (f $ xv + units!!i - units!!j)
+                       - (f $ xv - units!!i + units!!j)
+                       + (f $ xv - units!!i - units!!j) ) 
+                      / (4*(snd $ swings!!i) * (snd $ swings!!j))
+                  | otherwise = 0.0    
+      hess1= buildMatrix n n fhess 
+      hess2 = buildMatrix n n $ \(i,j) ->if i>=j then hess1@@>(i,j) 
+                                                 else hess1@@>(j,i) 
   
-  in inv hess1
+  in (fromList (map (fst) swings), inv hess2)
 
 
 genInitial :: (Vector Double -> Double) -> Double -> Vector Double -> Simplex

@@ -548,6 +548,27 @@ outerSame v = L.outer v v
 empiricalMean :: [L.Vector Double] -> L.Vector Double
 empiricalMean vecs = L.scale (recip $ realToFrac $ length vecs) $ sum vecs
 
+initialAdaMetFromCov :: Int -> P.PDF (L.Vector Double) -> 
+                 L.Vector Double -> L.Matrix Double -> Sampler AMPar
+initialAdaMetFromCov n pdf  init cov = do
+              let dims = L.dim init
+              let scalar = (2.4*2.4/realToFrac dims)::Double
+              
+              let propose cur = multiNormal cur (L.scale (scalar::Double) cov)
+              let oneStep xi = do
+                    xstar <- propose xi
+                    u <- unitSample
+                    let pi = pdf xi
+                    let pstar = pdf xstar
+                    return $ if u < exp (pstar - pi)
+                                then {-trace ("IACCEPT "++show xstar) -} xstar
+                                else {-trace ("IREJECT "++show xstar) -} xi   
+              vecs <- runChainS n init oneStep
+              let cov = empiricalCovariance vecs              
+              let mn = empiricalMean vecs
+              return $ AMPar (last vecs) mn cov n (n`div`2)
+
+
 initialAdaMet :: Int -> Double ->P.PDF (L.Vector Double) -> 
                  L.Vector Double -> Sampler AMPar
 initialAdaMet n iniw pdf  init = do

@@ -38,12 +38,12 @@ module Math.Probably.Sampler where
 import Control.Monad
 import Control.Applicative
 import qualified Math.Probably.PDF as PDF
-import Numeric.LinearAlgebra
+import Numeric.LinearAlgebra hiding (find)
 import System.Random.Mersenne.Pure64
 import System.Environment
 import Data.List
 import Data.Maybe
-
+import Data.Ord
 type Seed = PureMT
 
 newtype Sampler a = Sam {unSam :: Seed -> (a, Seed) }
@@ -197,6 +197,14 @@ logNormal m sd =
 -- | Bernoulli distribution. Returns a Boolean that is 'True' with probability 'p'
 bernoulli :: Double -> Sampler Bool
 bernoulli p = (<p) `fmap` unitSample 
+
+
+discrete :: [(Double,a)] -> Sampler a
+discrete weightedSamples = 
+   let sumWeights = sum $ map fst weightedSamples
+       cummWeightedSamples = scanl (\(csum,_) (w,x) -> (csum+w,x)) (0,undefined) $ sortBy (comparing fst) weightedSamples
+   in do u <- unitSample
+         return . snd . fromJust $ find ((>=u*sumWeights) . fst) cummWeightedSamples
 
 
 
