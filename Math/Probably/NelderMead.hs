@@ -51,52 +51,60 @@ secondLast (_:xs) = secondLast xs
 
 replaceLast xs x = init xs ++ [x]
 
-instance Bounded Double where
-  minBound = -1e80
-  maxBound = 1e80
-
-
-hessianFromSimplex :: (Vector Double -> Double) -> Simplex -> (Vector Double, Matrix Double)
-hessianFromSimplex f sim = 
+hessianFromSimplex :: (Vector Double -> Double) -> [Int] -> Simplex -> (Vector Double, Matrix Double)
+hessianFromSimplex f isInt sim = 
   let mat :: [Vector Double]
       mat = toRows $ fromColumns $ map fst sim
       fsw ((y0, ymin),ymax) = (y0, max (ymax-y0) (y0-ymin))
-      swings = flip map mat $ runStat (fmap fsw $ meanF `both` minF `both` maxF) . toList 
+      swings = flip map mat $ runStat (fmap fsw $ meanF `both` minFrom 1e80 `both` maxFrom (-1e80)) . toList 
       n = length swings
       xv = fromList $ map fst swings
       fxv = f  xv
-      units = flip map [0..n-1] $ \d -> buildVector n $ \i -> if i ==d then snd $ swings!!i else 0
+      iswings i | i `elem` isInt = atLeastOne $snd $ swings!!i
+                | otherwise = snd $ swings!!i
+      funits d i | d/=i = 0
+                 | i `elem` isInt = atLeastOne $ snd $ swings!!i
+                 | otherwise = snd $ swings!!i 
+      units = flip map [0..n-1] $ \d -> buildVector n $ funits d
       --http://www.caspur.it/risorse/softappl/doc/sas_docs/ormp/chap5/sect28.htm
       fhess (i,j) | i>=j = 
                       ((f $ xv + units!!i + units!!j)
                        - (f $ xv + units!!i - units!!j)
                        - (f $ xv - units!!i + units!!j)
                        + (f $ xv - units!!i - units!!j) ) 
-                      / (4*(snd $ swings!!i) * (snd $ swings!!j))
+                      / (4*(iswings i) * (iswings j))
                   | otherwise = 0.0    
       hess1= buildMatrix n n fhess 
       hess2 = buildMatrix n n $ \(i,j) ->if i>=j then hess1@@>(i,j) 
                                                  else hess1@@>(j,i) 
-  
+
+  -- we probably  ought to make pos-definite
+  -- http://www.mathworks.com/matlabcentral/newsreader/view_thread/103174
+  -- posdefify in R etc  
   in (fromList (map (fst) swings), inv hess2)
 
+atLeastOne :: Double -> Double
+atLeastOne x | x > -1.0 || x < 1.0 = realToFrac $ round x
+             | x < 0 = -1.0
+             | otherwise = 1.0
 
-genInitial :: (Vector Double -> Double) -> Double -> Vector Double -> Simplex
-genInitial f h x0 = sim where
+genInitial :: (Vector Double -> Double) -> [Int] -> Double -> Vector Double -> Simplex
+genInitial f isInt h x0 = sim where
   n = length $ toList x0
-  unit d = buildVector n $ \j -> if j ==d then h*x0@>d else 0.0
+  unit d = buildVector n $ \j -> if j /=d then 0.0 else if d `elem` isInt then atLeastOne $ h*x0@>d 
+                                                                          else h*x0@>d  
   mkv d = with f $ x0 + unit d
   sim = (x0, f x0) : map mkv [0..n-1] 
 
-goNm :: (Vector Double -> Double) -> Double -> Simplex -> Simplex
-goNm f' tol sim' = go f' $ sortBy (comparing snd) sim' where
-  go f sim = let nsim = sortBy (comparing snd) $ (nmStep f sim)
+goNm :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
+goNm f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
+  go f sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
              in if snd (last sim) - snd (head sim) < tol
                    then nsim
                    else go f nsim
 
-nmStep :: (Vector Double -> Double) -> Simplex -> Simplex
-nmStep f s0 = snext where
+nmStep :: (Vector Double -> Double) -> [Int] -> Simplex -> Simplex
+nmStep f isInt s0 = snext where
    x0 = centroid $ init s0
    xnp1 = fst (last s0)
    fxnp1 = snd (last s0)

@@ -54,18 +54,18 @@ data AdaMetRunPars = AdaMetRunPars
      { nmTol :: Double,
        displayIt :: Maybe (L.Vector Double -> String),
        ninitial :: Int,
-       nsam :: Int }
+       amnsam :: Int }
 
 defaultAM = AdaMetRunPars 0.5 Nothing 500 1000
 
-nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) 
+nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
             -> L.Vector Double -> RIO AMPar --[L.Vector Double]
-nmAdaMet (AdaMetRunPars nmtol dispit ninit nsam) pdf init = do
-     let iniSim = genInitial (negate . pdf) 0.1 $ init
+nmAdaMet (AdaMetRunPars nmtol dispit ninit nsam) pdf isInt init = do
+     let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
      io $ print iniSim
-     let finalSim =  goNm (negate . pdf) nmtol iniSim
+     let finalSim =  goNm (negate . pdf) isInt nmtol iniSim
      io $ print finalSim
-     let (maxPost,hess) = hessianFromSimplex (negate . pdf) finalSim 
+     let (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt finalSim 
      io $ print maxPost
      io $ print hess
      iniampar <- sample $ initialAdaMetFromCov ninit pdf maxPost hess

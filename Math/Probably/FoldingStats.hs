@@ -97,6 +97,13 @@ maxF = F (max) (minBound) id (max)
 minF :: (Num a, Ord a, Bounded a) => Fold a a
 minF = F (min) (maxBound) id (min)
 
+
+maxFrom :: (Num a, Ord a) => a -> Fold a a
+maxFrom mnb = F (max) (mnb) id (max)
+
+minFrom :: (Num a, Ord a) => a -> Fold a a
+minFrom mxb = F (min) (mxb ) id (min)
+
 minLocF :: (Num a, Ord a, Bounded a) => Fold a (a, Int)
 minLocF = F (\(minv, minn, curn) v -> if v < minv
                                          then (v,curn, curn+1)
