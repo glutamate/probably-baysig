@@ -529,6 +529,7 @@ writeInChunks = writeInChunks' 0
 data AMPar = AMPar { ampPar :: !(L.Vector Double),
                      ampMean :: !(L.Vector Double),
                      ampCov :: !(L.Matrix Double),
+                     lastLike :: !Double,
                      count :: !Int,
                      count_accept :: !Int } deriving Show
 
@@ -555,18 +556,17 @@ initialAdaMetFromCov n pdf  init cov = do
               let scalar = (2.4*2.4/realToFrac dims)::Double
               
               let propose cur = multiNormal cur (L.scale (scalar::Double) cov)
-              let oneStep xi = do
+              let oneStep  xi = do
                     xstar <- propose xi
                     u <- unitSample
-                    let pi = pdf xi
                     let pstar = pdf xstar
                     return $ if u < exp (pstar - pi)
                                 then {-trace ("IACCEPT "++show xstar) -} xstar
-                                else {-trace ("IREJECT "++show xstar) -} xi   
+                                else {-trace ("IREJECT "++show xstar) -} xi
               vecs <- runChainS n init oneStep
               let cov = empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov n (n`div`2)
+              return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
 
 
 initialAdaMet :: Int -> Double ->P.PDF (L.Vector Double) -> 
@@ -586,7 +586,7 @@ initialAdaMet n iniw pdf  init = do
               vecs <- runChainS n init oneStep
               let cov = empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov n (n`div`2)
+              return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
      
 runChainS :: Int -> a -> (a -> Sampler a) -> Sampler [a]
 runChainS 0 _ _ = return []
@@ -604,24 +604,23 @@ runAdaMet n freeze pdf amp = do
 
 adaMet :: Bool -> P.PDF (L.Vector Double) -> 
           AMPar -> Sampler AMPar 
-adaMet freeze pdf (AMPar xi mn cov (realToFrac -> t) naccept) = do
+adaMet freeze pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
    --propose
    let dims = L.dim xi
    let scalar = (2.4*2.4/realToFrac dims)::Double
    xstar <-  multiNormal xi (L.scale (scalar::Double) cov)
    u <- unitSample
    --eval
-   let pi = pdf xi
    let pstar = pdf xstar
-   let (xaccept, nnaccept) = if u < exp (pstar - pi)
-                    then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1)
-                    else {- trace ("REJECT "++show xstar) -} (xi, naccept)
+   let (xaccept, nnaccept, paccept) = if u < exp (pstar - pi)
+                    then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
+                    else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
    if freeze 
-      then return $ AMPar xaccept mn cov (round $ t+1) nnaccept
+      then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
                ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
-           in return $ AMPar xaccept nmn ncov (round $ t+1) nnaccept
+           in return $ AMPar xaccept nmn ncov paccept (round $ t+1) nnaccept
 --   return $ AMPar xaccept mn cov (round $ t+1)
 
 

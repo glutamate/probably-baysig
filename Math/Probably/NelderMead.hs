@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Math.Probably.NelderMead where
 
 import Math.Probably.FoldingStats
@@ -81,7 +83,7 @@ hessianFromSimplex f isInt sim =
   -- we probably  ought to make pos-definite
   -- http://www.mathworks.com/matlabcentral/newsreader/view_thread/103174
   -- posdefify in R etc  
-  in (fromList (map (fst) swings), inv hess2)
+  in (fromList (map (fst) swings), hess2)
 
 atLeastOne :: Double -> Double
 atLeastOne x | x > -1.0 || x < 1.0 = realToFrac $ round x

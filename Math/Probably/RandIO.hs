@@ -15,6 +15,7 @@ import Control.Monad
 import Data.IORef
 import qualified Numeric.LinearAlgebra as L
 import Math.Probably.NelderMead
+
 type RIO = S.StateT Seed IO
 
 runRIO :: RIO a -> IO a
@@ -53,25 +54,52 @@ runChainRIO n showit init sam = do
 data AdaMetRunPars = AdaMetRunPars 
      { nmTol :: Double,
        displayIt :: Maybe (L.Vector Double -> String),
-       ninitial :: Int,
        amnsam :: Int }
 
-defaultAM = AdaMetRunPars 0.5 Nothing 500 1000
+defaultAM = AdaMetRunPars 0.5 Nothing 1000
+
+laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
+            -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double))
+laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt init =
+     let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
+         finalSim =  goNm (negate . pdf) isInt nmtol iniSim
+
+         (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt finalSim 
+--     io $ print maxPost
+         mbcor = case L.mbCholSH hess of 
+                   Just _ -> Just $ L.inv hess
+                   Nothing -> Nothing  
+         initV = centroid finalSim
+     in (initV, mbcor)
 
 nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
-            -> L.Vector Double -> RIO AMPar --[L.Vector Double]
-nmAdaMet (AdaMetRunPars nmtol dispit ninit nsam) pdf isInt init = do
+            -> L.Vector Double -> RIO [L.Vector Double]
+nmAdaMet (AdaMetRunPars nmtol dispit nsam) pdf isInt init = do
      let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
      io $ print iniSim
      let finalSim =  goNm (negate . pdf) isInt nmtol iniSim
      io $ print finalSim
      let (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt finalSim 
-     io $ print maxPost
+--     io $ print maxPost
+     io $ putStrLn "hessian"
      io $ print hess
-     iniampar <- sample $ initialAdaMetFromCov ninit pdf maxPost hess
-     io $ print iniampar
-     runAndDiscard nsam (show . ampPar) iniampar $ adaMet False (pdf)  
---     runAdaMetRIO nsam False iniampar pdf
+
+     let mbcor = case L.mbCholSH hess of 
+                   Just _ -> Just $ L.inv hess
+                   Nothing -> Nothing  
+     io $ putStrLn "maybe inverse hess"                                          
+     io $ print mbcor
+     let initV = centroid finalSim
+     let mbcorChol = mbcor >>= L.mbCholSH 
+     case (mbcor, mbcorChol) of
+       (Just cor, Just _) ->  do --io $ putStrLn "chol cor"
+                                 --io $ print $ L.inv cor
+                                 let ampar = AMPar initV initV cor (pdf initV) 0 0
+                                 runAdaMetRIO nsam True ampar pdf
+       _         -> do iniampar <- sample $ initialAdaMet 100 5e-3 pdf initV
+                       froampar <- runAndDiscard (nsam*2) (show . ampPar) iniampar $ adaMet False pdf
+                       runAdaMetRIO (nsam*2) True froampar pdf
+      
                                       
 
 runAdaMetRIO :: Int -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
