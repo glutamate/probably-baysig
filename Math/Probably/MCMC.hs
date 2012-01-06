@@ -609,10 +609,9 @@ adaMet freeze pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
    let dims = L.dim xi
    let scalar = (2.4*2.4/realToFrac dims)::Double
    xstar <-  multiNormal xi (L.scale (scalar::Double) cov)
-   u <- unitSample
-   --eval
    let pstar = pdf xstar
-   let (xaccept, nnaccept, paccept) = if u < exp (pstar - pi)
+   acceptIt <- accept pi pstar
+   let (xaccept, nnaccept, paccept) = if acceptIt
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
    if freeze 
@@ -625,3 +624,11 @@ adaMet freeze pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
 
 
 
+accept pi pstar | notNanInf2 pi pstar =  do u<- unitSample 
+                                            if u < exp (pstar - pi) then return True
+                                                                    else return False
+                | otherwise = cond [(nanOrInf pi && nanOrInf pstar,
+                                                        fail $ "accept pi pi pstar :"++
+                                                                show (pi,pstar)++"\n"),
+                                    (nanOrInf pstar, return False), -- never accept 
+                                    (nanOrInf pi, fail "pi inf")] $ fail "accept: the impossible happend"
