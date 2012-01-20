@@ -21,11 +21,15 @@ smellyTransform dist n f = do
 unscentedTransform :: (Vector Double, Matrix Double) -> 
                       (Vector Double -> Vector Double) -> 
                       (Vector Double, Matrix Double)
-unscentedTransform (mean, cov) f = (mean1, cov1) where
-   n = dim mean
-   k = n-3
-   matSqrt = toRows $ sqrt ( )
-   xs = concat [mean, [ mean + matSqrt!!i| i <- [0..(n-1)]], []]
-   ws = (k / (n+k)) : replicate (2*n) (1/(2*(n+k)))
-   mean1 = undefined
-   cov1 = undefined
+unscentedTransform (xmean, xcov) f = (ymean, ycov) where
+   n = dim xmean
+   nr = (realToFrac n) :: Double
+   k = 3-nr
+   matSqrt = toRows $ chol ( scale (nr+k) xcov)
+   xs = concat [[xmean], 
+                [xmean + (matSqrt!!i)| i <- [0..(n-1)]],
+                [xmean - (matSqrt!!i)| i <- [0..(n-1)]]]
+   ws = (k / (nr+k)) : replicate (2*n) (1/(2*(nr+k)))
+   ys = map f xs
+   ymean = sum $ zipWith (scale) ws ys
+   ycov = sum [scale wi $ (yi - ymean) `outer` (yi - ymean) | (wi,yi) <- zip ws ys]
