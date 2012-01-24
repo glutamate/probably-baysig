@@ -52,14 +52,33 @@ obsCov = (2><2) [0.01, 0,
 --obsCov = (1><1)  [0.01]
 
 
+testUT = do
+  let cov = (2><2) [0.1,0.08,0.08,0.1]
+      mn = (2 |> [1,1])
+      xform v = let [x,y] = toList v in fromList [x*x, y*y]
+      mkpt = ((\[x,y] -> (x,y)) .toList)
+  pts <- sample $ sequence $ replicate 1000 $ multiNormal mn cov
+  let (mnU, covU, sigmapts) = unscentedTransform (mn,cov) xform
+  let xformPts = map xform pts
+  io $ gnuplotOnScreen $ map mkpt pts :+: map mkpt sigmapts --  :+: map mkpt xformPts
+  io $ print mnU
+  io $ print covU
+  (mnE, covE) <- sample $ smellyTransform (multiNormal mn cov) 1000 xform
+  io $ print mnE
+  io $ print covE
+  
+
 main = runRIO $ do 
      xyvs <- sample $ simDynamical 200 f g procCov obsCov (fromList [0, 0.1])
+     --let xyvs = flip map xyvs' $ \(xv,yv) -> (xv,negate yv)
 --     pts <- sample $ sequence $ replicate 1000 $ lastSDESampler dt
      --w <- sample $ fmap (eulerMaruyama dt 0 a b) $ weiner dt 1
      let xhats = unscentedKalmanFilterAdditive f' g' procCov obsCov (fromList [0,0], ((2><2) [1,0,0,1])) $ map snd xyvs
      let get s f =  (s, Lines [] $ zip [(0::Double)..] $ map f xyvs)
-     io $ gnuplotOnScreen $ get "y" ((@>0) . snd) :+: get "x" ((@>1) . fst) 
-                            :+: ("xhat", Lines [] $ zip [(0::Double)..] $ map ((@>0) . fst)  xhats)
-     io $ print $ take 10 $ map snd xyvs
+     io $ gnuplotOnScreen $ get "y" ((@>1) . snd) :+: get "x" ((@>1) . fst) 
+                            :+: ("xhat", Lines [] $ zip [(0::Double)..] $ map ((@>1) . fst)  xhats)
+     io $ print $ take 10 $ map snd xyvs 
+
+     testUT
 --     io $ gnuplotOnScreen $ get "x" ((@>1) . fst)
 --     io $ print $ runStat meanSDF $ pts

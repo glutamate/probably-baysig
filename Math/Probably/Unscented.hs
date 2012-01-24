@@ -17,7 +17,7 @@ smellyTransform dist n f = do
    let n = dim $ head ys
    return (empiricalMean ys, empiricalCovariance ys)
    
-alphaUT = 1e-3
+alphaUT = 1e-1
 kappaUT = 0
 betaUT = 2
 
@@ -27,15 +27,15 @@ unscentedTransform :: (Vector Double, Matrix Double) -- ^ random variable
 unscentedTransform (xmean, xcov) f = (ymean, ycov, xs) where
    l = dim xmean
    lr = (realToFrac l) :: Double
-   lambda = alphaUT * alphaUT * (lr + kappaUT) - lr
-   matSqrt = toRows $ trans $ chol $ scale (lr+lambda) xcov
+   lambda = traceit "lambda " $alphaUT * alphaUT * (lr + kappaUT) - lr
+   matSqrt = traceit "SQRT " $ toRows $ chol $ scale (lr+lambda) xcov
    xs = concat [[xmean], 
                 [xmean + (matSqrt!!i)| i <- [0..(l-1)]],
                 [xmean - (matSqrt!!i)| i <- [0..(l-1)]]]
-   wm = (lambda / (lr+lambda)) : replicate (2*l) (1/(2*(lr+lambda)))
-   wc = ((lambda / (lr+lambda)) + 1 - alphaUT*alphaUT +betaUT) : replicate (2*l) (1/(2*(lr+lambda)))
+   wm = traceit "wm " $ (lambda / (lr+lambda)) : replicate (2*l) (1/(2*(lr+lambda)))
+   wc = traceit "wc " $ ((lambda / (lr+lambda)) + 1 - alphaUT*alphaUT +betaUT) : replicate (2*l) (1/(2*(lr+lambda)))
    ys = map f xs
-   ymean = sum $ zipWith (scale) wm ys
+   ymean = sum $ zipWith (scale) wm ys 
    ycov = sum [scale wi $ (yi - ymean) `outer` (yi - ymean) | (wi,yi) <- zip wc ys]
 
 
@@ -52,9 +52,12 @@ unscentedKalmanFilterAdditive procF obsF procCov obsCov (xmn0, xcov0) (yobs:yobs
   nx = dim xmn0
   nrx = realToFrac $ nx
   kx = 3-nrx
+  l = dim xmn0
+  lr = (realToFrac l) :: Double
+  lambda = alphaUT * alphaUT * (lr + kappaUT) - lr
 
-  xmn1zz = ymn1pred
-  xcov1zz = ycov1pred
+  --xmn1zz = ymn1pred
+  --xcov1zz = ycov1pred
 
   (xmn1pred, xcov1pred', _) = unscentedTransform (xmn0, xcov0) procF 
   xcov1pred = xcov1pred' + procCov
@@ -65,6 +68,8 @@ unscentedKalmanFilterAdditive procF obsF procCov obsCov (xmn0, xcov0) (yobs:yobs
   ny = dim ymn1pred
   nry = realToFrac $ ny
   ky = 3-nry
+
+  wc = ((lambda / (lr+lambda)) + 1 - alphaUT*alphaUT +betaUT) : replicate (2*l) (1/(2*(lr+lambda)))
 
   ws = (ky / (nry+ky)) : replicate (2*ny) (1/(2*(nry+ky)))
 -- $ trace (show $ map dim [chii,xmn1pred, obsF chii, ymn1pred])
