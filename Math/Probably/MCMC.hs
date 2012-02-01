@@ -564,7 +564,7 @@ initialAdaMetFromCov n pdf  init cov = do
                                 then {-trace ("IACCEPT "++show xstar) -} xstar
                                 else {-trace ("IREJECT "++show xstar) -} xi
               vecs <- runChainS n init oneStep
-              let cov = empiricalCovariance vecs              
+              let cov = posdefify $ empiricalCovariance vecs              
               let mn = empiricalMean vecs
               return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
 
@@ -587,6 +587,25 @@ initialAdaMet n iniw pdf  init = do
               let cov = empiricalCovariance vecs              
               let mn = empiricalMean vecs
               return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
+
+initialAdaMetWithCov :: Int -> P.PDF (L.Vector Double) -> L.Matrix Double ->
+                        L.Vector Double -> Sampler AMPar
+initialAdaMetWithCov n pdf cov init = do
+              let scalar = (2.4*2.4/realToFrac (L.dim init))::Double
+              let propose cur = multiNormal cur (L.scale (scalar::Double) cov)
+              let oneStep xi = do
+                    xstar <- propose xi
+                    u <- unitSample
+                    let pi = pdf xi
+                    let pstar = pdf xstar
+                    return $ if u < exp (pstar - pi)
+                                then {-trace ("IACCEPT "++show xstar) -} xstar
+                                else {-trace ("IREJECT "++show xstar) -} xi   
+              vecs <- runChainS n init oneStep
+              let cov = empiricalCovariance vecs              
+              let mn = empiricalMean vecs
+              return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
+
      
 runChainS :: Int -> a -> (a -> Sampler a) -> Sampler [a]
 runChainS 0 _ _ = return []
@@ -615,6 +634,50 @@ adaMet freeze pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
    if freeze 
+      then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
+      else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
+               m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
+               ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
+           in return $ AMPar xaccept nmn ncov paccept (round $ t+1) nnaccept
+--   return $ AMPar xaccept mn cov (round $ t+1)
+
+adaMetNoCacheP :: Bool -> P.PDF (L.Vector Double) -> 
+          AMPar -> Sampler AMPar 
+adaMetNoCacheP freeze pdf (AMPar xi mn cov _ (realToFrac -> t) naccept) = do
+   --propose 
+   let dims = L.dim xi
+   let scalar = (2.4*2.4/realToFrac dims)::Double
+   xstar <-  multiNormal xi (L.scale (scalar::Double) cov)
+   let pstar = pdf xstar
+   let pi = pdf xi
+   acceptIt <- accept pi pstar
+   let (xaccept, nnaccept, paccept) = if acceptIt
+                    then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
+                    else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
+   if freeze 
+      then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
+      else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
+               m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
+               ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
+           in return $ AMPar xaccept nmn ncov paccept (round $ t+1) nnaccept
+--   return $ AMPar xaccept mn cov (round $ t+1)
+
+adaMetInterleaveInitial :: Bool -> L.Matrix Double -> P.PDF (L.Vector Double) -> 
+          AMPar -> Sampler AMPar 
+adaMetInterleaveInitial freeze initcov pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
+   --propose
+   let dims = L.dim xi
+   let scalar = min 1 $ (2.4*2.4/realToFrac dims)::Double
+   useOriginal <- bernoulli 0.5
+   xstar <-  if useOriginal 
+                then multiNormal xi (L.scale (scalar::Double) initcov)
+                else multiNormal xi (L.scale (scalar::Double) cov)
+   let pstar = pdf xstar
+   acceptIt <- accept pi pstar
+   let (xaccept, nnaccept, paccept) = if acceptIt
+                    then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
+                    else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
+   if freeze || useOriginal 
       then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept

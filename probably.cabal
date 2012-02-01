@@ -27,6 +27,7 @@ License-file:        LICENSE
 Author:              Tom Nielsen
 Maintainer:          tanielsen@gmail.com
 build-type:          Simple
+ghc-options:         -O2
 Exposed-modules:     Math.Probably.Sampler,
                      Math.Probably.FoldingStats,
                      Math.Probably.Student,
@@ -40,6 +41,7 @@ Exposed-modules:     Math.Probably.Sampler,
 		     Math.Probably.Distribution,
 		     Math.Probably.NelderMead,
 		     Math.Probably.Unscented,
+		     Math.Probably.IterLap,
 --		     Math.Probably.JAGS
                      Math.Probably.RandIO
 

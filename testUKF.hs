@@ -69,7 +69,7 @@ testUT = do
   
 
 main = runRIO $ do 
-     xyvs <- sample $ simDynamical 200 f g procCov obsCov (fromList [0, 0.1])
+     xyvs <- sample $ simDynamical 2000 f g procCov obsCov (fromList [0, 0.1])
      --let xyvs = flip map xyvs' $ \(xv,yv) -> (xv,negate yv)
 --     pts <- sample $ sequence $ replicate 1000 $ lastSDESampler dt
      --w <- sample $ fmap (eulerMaruyama dt 0 a b) $ weiner dt 1

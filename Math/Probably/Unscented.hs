@@ -76,7 +76,7 @@ unscentedKalmanFilterAdditive procF obsF procCov obsCov (xmn0, xcov0) (yobs:yobs
   crossCov = traceit "cross " $ sum [scale wi 
                                       $ (chii - xmn1pred) `outer` 
                                         (obsF chii - ymn1pred) 
-                      | (wi,chii) <- zip wc chis]
+                      | (wi,chii) <- zip ws chis]
 
   gain = crossCov `multiply` inv ycov1pred
 

@@ -59,7 +59,7 @@ data AdaMetRunPars = AdaMetRunPars
 defaultAM = AdaMetRunPars 0.5 Nothing 1000
 
 laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
-            -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double))
+            -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
 laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt init =
      let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
          finalSim =  goNm (negate . pdf) isInt nmtol iniSim
@@ -68,9 +68,9 @@ laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt init =
 --     io $ print maxPost
          mbcor = case L.mbCholSH hess of 
                    Just _ -> Just $ L.inv hess
-                   Nothing -> Nothing  
+                   Nothing -> Nothing
          initV = centroid finalSim
-     in (initV, mbcor)
+     in (initV, mbcor, finalSim)
 
 nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
             -> L.Vector Double -> RIO [L.Vector Double]
@@ -108,8 +108,23 @@ runAdaMetRIO n freeze ampar pdf = do
     (nseed, xs) <- io $ go n seed ampar []
     S.put nseed
     return xs
-     where go 0 s amp vs = return (s, vs)
+     where go 0 s amp vs = do print $ amp
+                              return (s, reverse vs)
            go nn s amp vs = do let (!ampn, !ns) = unSam (adaMet freeze pdf amp) s
+                               when(nn `rem` chsz==0) $ 
+                                   putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++show (ampPar ampn)-- ++" LH="++show (pdf (ampPar ampn))
+                               go (nn-1) ns ampn $ (ampPar ampn):vs
+           chsz = n `div` 50
+
+runAdaMetRIOInterleaveInitial :: Int -> Bool -> L.Matrix Double -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
+runAdaMetRIOInterleaveInitial n freeze cov ampar pdf = do
+    seed <- S.get
+    (nseed, xs) <- io $ go n seed ampar []
+    S.put nseed
+    return xs
+     where go 0 s amp vs = do print $ amp
+                              return (s, vs)
+           go nn s amp vs = do let (!ampn, !ns) = unSam (adaMetInterleaveInitial freeze cov pdf amp) s
                                when(nn `rem` chsz==0) $ 
                                    putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++show (ampPar ampn)-- ++" LH="++show (pdf (ampPar ampn))
                                go (nn-1) ns ampn $ (ampPar ampn):vs

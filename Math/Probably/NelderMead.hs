@@ -86,7 +86,8 @@ hessianFromSimplex f isInt sim =
   in (fromList (map (fst) swings), hess2)
 
 atLeastOne :: Double -> Double
-atLeastOne x | x > -1.0 || x < 1.0 = realToFrac $ round x
+atLeastOne x | isNaN x || isInfinite x = 1.0
+             | x < -1.0 || x > 1.0 = realToFrac $ round x
              | x < 0 = -1.0
              | otherwise = 1.0
 

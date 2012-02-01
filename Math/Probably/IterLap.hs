@@ -8,6 +8,8 @@ import Math.Probably.FoldingStats
 import Math.Probably.MCMC (empiricalMean, empiricalCovariance)
 import Debug.Trace
 
+import Data.Maybe
+
 import Numeric.LinearAlgebra hiding (find)
 
 weightedMeanCov :: [(Vector Double, Double)] -> (Vector Double, Matrix Double)
@@ -30,15 +32,25 @@ improve :: Int -> (Vector Double -> Double)
         -> Sampler (Vector Double, Matrix Double)
 improve n f (mu, cov) = do
   xs <- sequence $ replicate n $ multiNormal mu cov
-  let ps = map f xs
-      pmin = foldl1 min ps
-      psum = sum $ map (\p-> p - pmin) ps
-      ws =  map (\p-> (p-pmin)/psum) ps
-      (mu', cov') = weightedMeanCov $zip xs ws
-  return $ (mu', scale 2 cov')
+  let xps = catMaybes $ map (\x-> let fx = f x in if isNaN fx || isInfinite fx then Nothing else Just (x,fx)) xs
+      pmin = runStat (before (minFrom 1e80) snd) xps
+      psubmin =  map (\(x,p)-> (x, exp $ p - pmin)) xps
+      psum = sum $ map snd psubmin
+      ws =  map (\(x,p)-> (x,p/psum)) psubmin
+      (mu', cov') = weightedMeanCov $ ws
+  return $ (mu', posdefify $ scale 2 cov')
 
 iterateM :: Int -> (a -> Sampler a) -> a-> Sampler a
 iterateM 0 _ x = return x
 iterateM n f x = do
    newx <- f x
    iterateM (n-1) f newx
+
+iterLap :: [Int] 
+        -> (Vector Double -> Double) 
+        -> (Vector Double, Matrix Double)
+        -> Sampler (Vector Double, Matrix Double)
+iterLap [] _ x = return x
+iterLap (n:ns) f x = do
+   newx <- improve n f x
+   iterLap (ns) f newx
