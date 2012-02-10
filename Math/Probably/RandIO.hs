@@ -66,9 +66,11 @@ laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt init =
 
          (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt finalSim 
 --     io $ print maxPost
-         mbcor = case L.mbCholSH hess of 
+         mbcor = case L.mbCholSH $ hess of 
                    Just _ -> Just $ L.inv hess
-                   Nothing -> Nothing
+                   Nothing -> case L.mbCholSH $ posdefify hess of
+                                 Just _ -> Just $ L.inv $ posdefify hess
+                                 Nothing -> Nothing
          initV = centroid finalSim
      in (initV, mbcor, finalSim)
 
@@ -94,7 +96,7 @@ nmAdaMet (AdaMetRunPars nmtol dispit nsam) pdf isInt init = do
      case (mbcor, mbcorChol) of
        (Just cor, Just _) ->  do --io $ putStrLn "chol cor"
                                  --io $ print $ L.inv cor
-                                 let ampar = AMPar initV initV cor (pdf initV) 0 0
+                                 let ampar = AMPar initV initV cor 2.4 (pdf initV) 0 0
                                  runAdaMetRIO nsam True ampar pdf
        _         -> do iniampar <- sample $ initialAdaMet 100 5e-3 pdf initV
                        froampar <- runAndDiscard (nsam*2) (show . ampPar) iniampar $ adaMet False pdf

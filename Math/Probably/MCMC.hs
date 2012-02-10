@@ -529,9 +529,12 @@ writeInChunks = writeInChunks' 0
 data AMPar = AMPar { ampPar :: !(L.Vector Double),
                      ampMean :: !(L.Vector Double),
                      ampCov :: !(L.Matrix Double),
+                     scaleFactor :: !Double,
                      lastLike :: !Double,
                      count :: !Int,
                      count_accept :: !Int } deriving Show
+
+
 
 empiricalCovariance :: [L.Vector Double] -> L.Matrix Double
 empiricalCovariance xs
@@ -566,7 +569,7 @@ initialAdaMetFromCov n pdf  init cov = do
               vecs <- runChainS n init oneStep
               let cov = posdefify $ empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
+              return $ AMPar (last vecs) mn cov 2.4 (pdf $ last vecs) n (n`div`2)
 
 
 initialAdaMet :: Int -> Double ->P.PDF (L.Vector Double) -> 
@@ -586,7 +589,7 @@ initialAdaMet n iniw pdf  init = do
               vecs <- runChainS n init oneStep
               let cov = empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
+              return $ AMPar (last vecs) mn cov 2.4 (pdf $ last vecs) n (n`div`2)
 
 initialAdaMetWithCov :: Int -> P.PDF (L.Vector Double) -> L.Matrix Double ->
                         L.Vector Double -> Sampler AMPar
@@ -604,7 +607,7 @@ initialAdaMetWithCov n pdf cov init = do
               vecs <- runChainS n init oneStep
               let cov = empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov (pdf $ last vecs) n (n`div`2)
+              return $ AMPar (last vecs) mn cov 2.4 (pdf $ last vecs) n (n`div`2)
 
      
 runChainS :: Int -> a -> (a -> Sampler a) -> Sampler [a]
@@ -623,75 +626,75 @@ runAdaMet n freeze pdf amp = do
 
 adaMet :: Bool -> P.PDF (L.Vector Double) -> 
           AMPar -> Sampler AMPar 
-adaMet freeze pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
+adaMet freeze pdf am@(AMPar xi mn cov sf pi (realToFrac -> t) naccept) = do
    --propose
    let dims = L.dim xi
-   let scalar = (2.4*2.4/realToFrac dims)::Double
+   let scalar = (sf*sf/realToFrac dims)::Double
    xstar <-  multiNormal xi (L.scale (scalar::Double) cov)
    let pstar = pdf xstar
-   acceptIt <- accept pi pstar
+   acceptIt <- accept am pi pstar
    let (xaccept, nnaccept, paccept) = if acceptIt
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
    if freeze 
-      then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
+      then return $ AMPar xaccept mn cov sf paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
                ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
-           in return $ AMPar xaccept nmn ncov paccept (round $ t+1) nnaccept
+           in return $ AMPar xaccept nmn ncov sf paccept (round $ t+1) nnaccept
 --   return $ AMPar xaccept mn cov (round $ t+1)
 
 adaMetNoCacheP :: Bool -> P.PDF (L.Vector Double) -> 
           AMPar -> Sampler AMPar 
-adaMetNoCacheP freeze pdf (AMPar xi mn cov _ (realToFrac -> t) naccept) = do
+adaMetNoCacheP freeze pdf (AMPar xi mn cov sf _ (realToFrac -> t) naccept) = do
    --propose 
    let dims = L.dim xi
-   let scalar = (2.4*2.4/realToFrac dims)::Double
+   let scalar = (sf*sf/realToFrac dims)::Double
    xstar <-  multiNormal xi (L.scale (scalar::Double) cov)
    let pstar = pdf xstar
    let pi = pdf xi
-   acceptIt <- accept pi pstar
+   acceptIt <- accept (xi, xstar, cov) pi pstar 
    let (xaccept, nnaccept, paccept) = if acceptIt
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
    if freeze 
-      then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
+      then return $ AMPar xaccept mn cov sf paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
                ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
-           in return $ AMPar xaccept nmn ncov paccept (round $ t+1) nnaccept
+           in return $ AMPar xaccept nmn ncov sf paccept (round $ t+1) nnaccept
 --   return $ AMPar xaccept mn cov (round $ t+1)
 
 adaMetInterleaveInitial :: Bool -> L.Matrix Double -> P.PDF (L.Vector Double) -> 
           AMPar -> Sampler AMPar 
-adaMetInterleaveInitial freeze initcov pdf (AMPar xi mn cov pi (realToFrac -> t) naccept) = do
+adaMetInterleaveInitial freeze initcov pdf am@(AMPar xi mn cov sf pi (realToFrac -> t) naccept) = do
    --propose
    let dims = L.dim xi
-   let scalar = min 1 $ (2.4*2.4/realToFrac dims)::Double
+   let scalar = (sf*sf/realToFrac dims)::Double
    useOriginal <- bernoulli 0.5
    xstar <-  if useOriginal 
                 then multiNormal xi (L.scale (scalar::Double) initcov)
                 else multiNormal xi (L.scale (scalar::Double) cov)
    let pstar = pdf xstar
-   acceptIt <- accept pi pstar
+   acceptIt <- accept am pi pstar
    let (xaccept, nnaccept, paccept) = if acceptIt
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
    if freeze || useOriginal 
-      then return $ AMPar xaccept mn cov paccept (round $ t+1) nnaccept
+      then return $ AMPar xaccept mn cov sf paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
                ncov = L.scale ((t-1)/t) cov + L.scale (scalar/t) m0
-           in return $ AMPar xaccept nmn ncov paccept (round $ t+1) nnaccept
+           in return $ AMPar xaccept nmn ncov sf paccept (round $ t+1) nnaccept
 --   return $ AMPar xaccept mn cov (round $ t+1)
 
 
 
-accept pi pstar | notNanInf2 pi pstar =  do u<- unitSample 
-                                            if u < exp (pstar - pi) then return True
-                                                                    else return False
-                | otherwise = cond [(nanOrInf pi && nanOrInf pstar,
+accept am pi pstar | notNanInf2 pi pstar =  do u<- unitSample 
+                                               if u < exp (pstar - pi) then return True
+                                                                       else return False
+                   | otherwise = cond [(nanOrInf pi && nanOrInf pstar,
                                                         fail $ "accept pi pi pstar :"++
-                                                                show (pi,pstar)++"\n"),
+                                                                show (pi,pstar)++"\n"++show am++"\n"),
                                     (nanOrInf pstar, return False), -- never accept 
                                     (nanOrInf pi, fail "pi inf")] $ fail "accept: the impossible happend"
