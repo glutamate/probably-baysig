@@ -16,6 +16,8 @@ import Data.IORef
 import qualified Numeric.LinearAlgebra as L
 import Math.Probably.NelderMead
 
+import Debug.Trace
+
 type RIO = S.StateT Seed IO
 
 runRIO :: RIO a -> IO a
@@ -58,13 +60,15 @@ data AdaMetRunPars = AdaMetRunPars
 
 defaultAM = AdaMetRunPars 0.5 Nothing 1000
 
-laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
-            -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
-laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt init =
-     let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
-         finalSim =  goNm (negate . pdf) isInt nmtol iniSim
+traceit s x = trace (s++show x) x
 
-         (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt finalSim 
+laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
+              -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
+laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt fixed init =
+     let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
+         finalSim =  traceit "finalsim" $ goNm (negate . pdf) isInt nmtol iniSim 
+
+         (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt fixed finalSim 
 --     io $ print maxPost
          mbcor = case L.mbCholSH $ hess of 
                    Just _ -> Just $ L.inv hess
@@ -74,14 +78,14 @@ laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt init =
          initV = centroid finalSim
      in (initV, mbcor, finalSim)
 
-nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] 
+nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
             -> L.Vector Double -> RIO [L.Vector Double]
-nmAdaMet (AdaMetRunPars nmtol dispit nsam) pdf isInt init = do
+nmAdaMet (AdaMetRunPars nmtol dispit nsam) pdf isInt fixed init = do
      let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
      io $ print iniSim
      let finalSim =  goNm (negate . pdf) isInt nmtol iniSim
      io $ print finalSim
-     let (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt finalSim 
+     let (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt fixed finalSim 
 --     io $ print maxPost
      io $ putStrLn "hessian"
      io $ print hess
