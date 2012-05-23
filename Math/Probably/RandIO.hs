@@ -56,32 +56,33 @@ runChainRIO n showit init sam = do
 data AdaMetRunPars = AdaMetRunPars 
      { nmTol :: Double,
        displayIt :: Maybe (L.Vector Double -> String),
-       amnsam :: Int }
+       amnsam :: Int,
+       initw:: Int -> Double}
 
-defaultAM = AdaMetRunPars 0.5 Nothing 1000
+defaultAM = AdaMetRunPars 0.5 Nothing 1000 $ const 0.02
 
 traceit s x = trace (s++show x) x
 
 laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
               -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
-laplaceApprox (AdaMetRunPars nmtol dispit nsam) pdf isInt fixed init =
-     let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
-         finalSim =  traceit "finalsim" $ goNm (negate . pdf) isInt nmtol iniSim 
+laplaceApprox (AdaMetRunPars nmtol dispit nsam initw) pdf isInt fixed init =
+     let iniSim = genInitial (negate . pdf) isInt initw $ init
+         finalSim =  {-traceit "finalsim" $ -} goNm (negate . pdf) isInt nmtol iniSim 
 
          (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt fixed finalSim 
 --     io $ print maxPost
          mbcor = case L.mbCholSH $ hess of 
                    Just _ -> Just $ L.inv hess
-                   Nothing -> case L.mbCholSH $ posdefify hess of
-                                 Just _ -> Just $ L.inv $ posdefify hess
-                                 Nothing -> Nothing
-         initV = centroid finalSim
+                   Nothing -> case L.mbCholSH $ PDF.posdefify hess of
+                                 Just _ -> Just $ L.inv $ PDF.posdefify hess
+                                 Nothing -> Just $ L.inv $ L.diag $ L.takeDiag $ hess
+         initV = fst $ head $ finalSim
      in (initV, mbcor, finalSim)
 
 nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
             -> L.Vector Double -> RIO [L.Vector Double]
-nmAdaMet (AdaMetRunPars nmtol dispit nsam) pdf isInt fixed init = do
-     let iniSim = genInitial (negate . pdf) isInt 0.1 $ init
+nmAdaMet (AdaMetRunPars nmtol dispit nsam initw ) pdf isInt fixed init = do
+     let iniSim = genInitial (negate . pdf) isInt initw $ init
      io $ print iniSim
      let finalSim =  goNm (negate . pdf) isInt nmtol iniSim
      io $ print finalSim
@@ -102,7 +103,7 @@ nmAdaMet (AdaMetRunPars nmtol dispit nsam) pdf isInt fixed init = do
                                  --io $ print $ L.inv cor
                                  let ampar = AMPar initV initV cor 2.4 (pdf initV) 0 0
                                  runAdaMetRIO nsam True ampar pdf
-       _         -> do iniampar <- sample $ initialAdaMet 100 5e-3 pdf initV
+       _         -> do iniampar <- sample $ initialAdaMet 100 (const 5e-3) pdf initV
                        froampar <- runAndDiscard (nsam*2) (show . ampPar) iniampar $ adaMet False pdf
                        runAdaMetRIO (nsam*2) True froampar pdf
       

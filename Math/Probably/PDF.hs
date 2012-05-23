@@ -7,6 +7,8 @@ module Math.Probably.PDF where
 
 import qualified Math.Probably.Student as S
 import Numeric.LinearAlgebra
+import Control.Spoon
+import Control.DeepSeq
 
 -- | The type of probablility density functions
 type PDF a = a->Double
@@ -80,12 +82,17 @@ mulPdf :: Num a => PDF a -> PDF a -> PDF a
 mulPdf d1 d2 = \x -> (d1 x + d2 x)
 
 --instance Num a => Num (PDF a) where
-    
+   
+instance NFData (Matrix Double) 
+   where rnf mat = mapMatrix (\x-> x `seq` 1.0::Double) mat `seq` ()
+
 -- | multivariate normal
 multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)
 multiNormal mu sigma = 
   let k = realToFrac $ dim mu
-      invSigma = inv sigma
+      invSigma = case spoon $ inv sigma of
+                   Just i -> i
+                   Nothing -> inv $ posdefify sigma
       mat1 = head . head . toLists
   in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
@@ -109,3 +116,16 @@ tstc = let mu = mu1
            x = mu1
            invSigma = inv sigma
        in (asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu)  -}
+
+
+posdefify m = 
+   let (eigvals, eigvecM) = eigSH $ mkSym {- $ trace (show m) -}  m
+       n = rows m
+       eigValsVecs = map f $ zip (toList eigvals) (toColumns eigvecM)
+       f (val,vec) = (abs val,vec)
+       q = fromColumns $ map snd eigValsVecs
+       bigLambda = diag $ fromList $ map fst eigValsVecs
+   in mkSym $ q `multiply` bigLambda `multiply` inv q
+
+mkSym m = buildMatrix (rows m) (cols m)$ \(i,j) ->if i>=j then m @@>(i,j) 
+                                                           else m @@>(j,i) 

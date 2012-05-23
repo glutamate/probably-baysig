@@ -44,6 +44,7 @@ import System.Environment
 import Data.List
 import Data.Maybe
 import Data.Ord
+import Control.Spoon
 
 --import Debug.Trace
 
@@ -175,23 +176,15 @@ gaussManyUnitD n | odd n = liftM2 (:) (gauss 0 1) (gaussManyUnit (n-1))
    gaussTwoAtATimeD (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATimeD rest
    gaussTwoAtATimeD _ = []
 
-posdefify m = 
-   let (eigvals, eigvecM) = eigSH $ mkSym {- $ trace (show m) -}  m
-       n = rows m
-       eigValsVecs = map f $ zip (toList eigvals) (toColumns eigvecM)
-       f (val,vec) = (abs val,vec)
-       q = fromColumns $ map snd eigValsVecs
-       bigLambda = diag $ fromList $ map fst eigValsVecs
-   in mkSym $ q `multiply` bigLambda `multiply` inv q
-
-mkSym m = buildMatrix (rows m) (cols m)$ \(i,j) ->if i>=j then m @@>(i,j) 
-                                                           else m @@>(j,i) 
 
 
 -- | Multivariate normal distribution
 multiNormal :: Vector Double -> Matrix Double -> Sampler (Vector Double)
 multiNormal mu sigma =
-  let a = trans $ chol sigma
+  let c =  case spoon $ chol sigma of
+                   Just i -> i
+                   Nothing -> chol $ PDF.posdefify sigma
+      a = trans c
       k = dim mu
   in do z <- fromList `fmap` gaussManyUnitD k
 --        return $ mu + (head $ toColumns $ a*asRow z)

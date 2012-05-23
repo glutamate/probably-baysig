@@ -9,6 +9,8 @@ import Data.Ord
 import Data.List
 import Data.Maybe
 
+import Debug.Trace
+
 {-mean, m2 :: Vector Double
 mean = fromList [45.1,10.3]
 
@@ -94,20 +96,25 @@ atLeastOne x | isNaN x || isInfinite x = 1.0
              | x < 0 = -1.0
              | otherwise = 1.0
 
-genInitial :: (Vector Double -> Double) -> [Int] -> Double -> Vector Double -> Simplex
+genInitial :: (Vector Double -> Double) -> [Int] -> (Int -> Double) -> Vector Double -> Simplex
 genInitial f isInt h x0 = sim where
   n = length $ toList x0
-  unit d = buildVector n $ \j -> if j /=d then 0.0 else if d `elem` isInt then atLeastOne $ h*x0@>d 
-                                                                          else h*x0@>d  
+  unit d = buildVector n $ \j -> if j /=d then 0.0 else if d `elem` isInt then atLeastOne $ h j*x0@>d 
+                                                                          else h j*x0@>d  
   mkv d = with f $ x0 + unit d
   sim = (x0, f x0) : map mkv [0..n-1] 
 
 goNm :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
 goNm f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
   go f sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
-             in if snd (last sim) - snd (head sim) < tol
-                   then nsim
-                   else go f nsim
+                 fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
+                                show (fst (last nsim)) ++ "\n"++
+                                show (map snd nsim)) 
+                           $ abs $ snd (last nsim) - snd (head nsim) 
+             in case () of
+                  _ |  fdiff < tol -> nsim
+                    |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
+                    |  otherwise   -> go f nsim
 
 nmStep :: (Vector Double -> Double) -> [Int] -> Simplex -> Simplex
 nmStep f isInt s0 = snext where

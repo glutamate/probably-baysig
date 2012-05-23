@@ -6,6 +6,7 @@ module Math.Probably.IterLap where
 import Math.Probably.Sampler
 import Math.Probably.FoldingStats
 import Math.Probably.MCMC (empiricalMean, empiricalCovariance)
+import Math.Probably.PDF (posdefify)
 import Debug.Trace
 
 import Data.Maybe

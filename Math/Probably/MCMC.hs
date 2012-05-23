@@ -567,29 +567,34 @@ initialAdaMetFromCov n pdf  init cov = do
                                 then {-trace ("IACCEPT "++show xstar) -} xstar
                                 else {-trace ("IREJECT "++show xstar) -} xi
               vecs <- runChainS n init oneStep
-              let cov = posdefify $ empiricalCovariance vecs              
+              let cov = P.posdefify $ empiricalCovariance vecs              
               let mn = empiricalMean vecs
               return $ AMPar (last vecs) mn cov 2.4 (pdf $ last vecs) n (n`div`2)
 
 
-initialAdaMet :: Int -> Double ->P.PDF (L.Vector Double) -> 
+initialAdaMet :: Int -> (Int -> Double) ->P.PDF (L.Vector Double) -> 
                  L.Vector Double -> Sampler AMPar
 initialAdaMet n iniw pdf  init = do
               let propose cur = fmap ( L.fromList) $ 
-                                forM (zip (L.toList cur) (L.toList init)) 
-                                     $ \(x,ini) -> gaussD x (ini*iniw)
-              let oneStep xi = do
+                                forM (zip3 [0..] (L.toList cur) (L.toList init)) 
+                                     $ \(n,x,ini) -> gaussD x (ini*iniw n)
+              let oneStep (n,xi, pi) = do
                     xstar <- propose xi
                     u <- unitSample
-                    let pi = pdf xi
+                    --let pi = pdf xi
                     let pstar = pdf xstar
                     return $ if u < exp (pstar - pi)
-                                then {-trace ("IACCEPT "++show xstar) -} xstar
-                                else {-trace ("IREJECT "++show xstar) -} xi   
-              vecs <- runChainS n init oneStep
+                                then {-trace ("IACCEPT "++show xstar) -} (n+1, xstar, pstar)
+                                else {-trace ("IREJECT "++show xstar) -} (n, xi, pi )
+              nvecs <- runChainS n (0,init, pdf init) oneStep
+              let vecs = map snd3 nvecs
               let cov = empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov 2.4 (pdf $ last vecs) n (n`div`2)
+              return $ AMPar (last vecs) mn cov 2.4 (trd3 $ last nvecs) n (fst3 $ last nvecs)
+
+fst3 (x,_,_) = x
+snd3 (_,x,_) = x
+trd3 (_,_,x) = x
 
 initialAdaMetWithCov :: Int -> P.PDF (L.Vector Double) -> L.Matrix Double ->
                         L.Vector Double -> Sampler AMPar
