@@ -16,6 +16,9 @@ import Data.IORef
 import qualified Numeric.LinearAlgebra as L
 import Math.Probably.NelderMead
 
+import Text.Printf
+import Data.List
+
 import Debug.Trace
 
 type RIO = S.StateT Seed IO
@@ -119,9 +122,17 @@ runAdaMetRIO n freeze ampar pdf = do
                               return (s, reverse vs)
            go nn s amp vs = do let (!ampn, !ns) = unSam (adaMet freeze pdf amp) s
                                when(nn `rem` chsz==0) $ 
-                                   putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++show (ampPar ampn)-- ++" LH="++show (pdf (ampPar ampn))
+                                   putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++showV (ampPar ampn) ++" LH="++printf "%.3g" (pdf (ampPar ampn)) ++ " accept="++acceptS ampn
                                go (nn-1) ns ampn $ (ampPar ampn):vs
            chsz = n `div` 50
+
+
+showV v = "<"++intercalate "," (map (printf "%.4g") $ L.toList v)++">"
+acceptS ampar  | count ampar == 0 = "0/0"
+               | otherwise = printf "%.3g" (rate::Double) ++ " ("++show yes++"/"++show total++")"where
+   rate = realToFrac (yes) / realToFrac (total)
+   yes = count_accept ampar
+   total = count ampar
 
 runAdaMetRIOInterleaveInitial :: Int -> Bool -> L.Matrix Double -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
 runAdaMetRIOInterleaveInitial n freeze cov ampar pdf = do

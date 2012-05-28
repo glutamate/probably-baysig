@@ -104,6 +104,7 @@ multiNormalByInv lndet invSigma mu =
   in \x-> log 1 - (k/2)*log (2*pi) - lndet/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
 
+
 {-mu1 = 2 |> [0, 0::Double]
 sig1 = (2><2)[1::Double, 0,
               0, 1]

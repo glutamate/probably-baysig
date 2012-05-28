@@ -559,17 +559,19 @@ initialAdaMetFromCov n pdf  init cov = do
               let scalar = (2.4*2.4/realToFrac dims)::Double
               
               let propose cur = multiNormal cur (L.scale (scalar::Double) cov)
-              let oneStep  xi = do
+              let oneStep (n,xi, pi) = do
                     xstar <- propose xi
                     u <- unitSample
+                    --let pi = pdf xi
                     let pstar = pdf xstar
                     return $ if u < exp (pstar - pi)
-                                then {-trace ("IACCEPT "++show xstar) -} xstar
-                                else {-trace ("IREJECT "++show xstar) -} xi
-              vecs <- runChainS n init oneStep
+                                then {-trace ("IACCEPT "++show xstar) -} (n+1, xstar, pstar)
+                                else {-trace ("IREJECT "++show xstar) -} (n, xi, pi )
+              nvecs <- runChainS n (0,init, pdf init) oneStep
+              let vecs = map snd3 nvecs
               let cov = P.posdefify $ empiricalCovariance vecs              
               let mn = empiricalMean vecs
-              return $ AMPar (last vecs) mn cov 2.4 (pdf $ last vecs) n (n`div`2)
+              return $ AMPar (last vecs) mn cov 2.4 (trd3 $ last nvecs) n (fst3 $ last nvecs)
 
 
 initialAdaMet :: Int -> (Int -> Double) ->P.PDF (L.Vector Double) -> 
