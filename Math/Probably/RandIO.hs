@@ -107,15 +107,15 @@ nmAdaMet (AdaMetRunPars nmtol dispit verbnm nsam initw ) pdf isInt fixed init = 
        (Just cor, Just _) ->  do --io $ putStrLn "chol cor"
                                  --io $ print $ L.inv cor
                                  let ampar = AMPar initV initV cor 2.4 (pdf initV) 0 0
-                                 runAdaMetRIO nsam True id ampar pdf
+                                 runAdaMetRIO nsam True ampar pdf
        _         -> do iniampar <- sample $ initialAdaMet 100 (const 5e-3) pdf initV
                        froampar <- runAndDiscard (nsam*2) (show . ampPar) iniampar $ adaMet False pdf
-                       runAdaMetRIO (nsam*2) True id froampar pdf
+                       runAdaMetRIO (nsam*2) True froampar pdf
       
                                       
 
-runAdaMetRIO :: Int -> Bool -> (AMPar -> AMPar) -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
-runAdaMetRIO n freeze transf ampar pdf = do
+runAdaMetRIO :: Int -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
+runAdaMetRIO n freeze ampar pdf = do
     seed <- S.get
     (nseed, xs) <- io $ go n seed ampar []
     S.put nseed
@@ -125,7 +125,7 @@ runAdaMetRIO n freeze transf ampar pdf = do
            go nn s amp vs = do let (!ampn, !ns) = unSam (adaMet freeze pdf amp) s
                                when(nn `rem` chsz==0) $ 
                                    putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++showV (ampPar ampn) ++" LH="++printf "%.3g" (pdf (ampPar ampn)) ++ " accept="++acceptS ampn
-                               go (nn-1) ns (transf ampn) $ (ampPar ampn):vs
+                               go (nn-1) ns (ampn) $ (ampPar ampn):vs
            chsz = n `div` 50
 
 
