@@ -107,14 +107,24 @@ genInitial f isInt h x0 = sim where
 goNm :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
 goNm f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
   go f sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
-                 fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
-                                show (fst (last nsim)) ++ "\n"++
-                                show (map snd nsim)) 
-                           $ abs $ snd (last nsim) - snd (head nsim) 
+                 fdiff = abs $ snd (last nsim) - snd (head nsim) 
              in case () of
                   _ |  fdiff < tol -> nsim
                     |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
                     |  otherwise   -> go f nsim
+
+goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
+goNmVerbose f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
+  go f sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
+                 fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
+                                show (fst (last nsim)) ++ "\n"++
+                                show (map snd nsim)) 
+                            abs $ snd (last nsim) - snd (head nsim) 
+             in case () of
+                  _ |  fdiff < tol -> nsim
+                    |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
+                    |  otherwise   -> go f nsim
+
 
 nmStep :: (Vector Double -> Double) -> [Int] -> Simplex -> Simplex
 nmStep f isInt s0 = snext where

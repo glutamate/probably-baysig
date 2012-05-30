@@ -59,18 +59,20 @@ runChainRIO n showit init sam = do
 data AdaMetRunPars = AdaMetRunPars 
      { nmTol :: Double,
        displayIt :: Maybe (L.Vector Double -> String),
+       verboseNM :: Bool,
        amnsam :: Int,
        initw:: Int -> Double}
 
-defaultAM = AdaMetRunPars 0.5 Nothing 1000 $ const 0.02
+defaultAM = AdaMetRunPars 0.5 Nothing False 1000 $ const 0.02
 
 traceit s x = trace (s++show x) x
 
 laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
               -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
-laplaceApprox (AdaMetRunPars nmtol dispit nsam initw) pdf isInt fixed init =
+laplaceApprox (AdaMetRunPars nmtol dispit verbnm nsam initw) pdf isInt fixed init =
      let iniSim = genInitial (negate . pdf) isInt initw $ init
-         finalSim =  {-traceit "finalsim" $ -} goNm (negate . pdf) isInt nmtol iniSim 
+         finalSim = if verbnm then goNmVerbose (negate . pdf) isInt nmtol iniSim 
+                              else goNm (negate . pdf) isInt nmtol iniSim 
 
          (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt fixed finalSim 
 --     io $ print maxPost
@@ -78,13 +80,13 @@ laplaceApprox (AdaMetRunPars nmtol dispit nsam initw) pdf isInt fixed init =
                    Just _ -> Just $ L.inv hess
                    Nothing -> case L.mbCholSH $ PDF.posdefify hess of
                                  Just _ -> Just $ L.inv $ PDF.posdefify hess
-                                 Nothing -> Just $ L.inv $ L.diag $ L.takeDiag $ hess
+                                 Nothing -> Just $ L.diag $ L.mapVector (recip) $ L.takeDiag $ hess
          initV = fst $ head $ finalSim
      in (initV, mbcor, finalSim)
 
 nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
             -> L.Vector Double -> RIO [L.Vector Double]
-nmAdaMet (AdaMetRunPars nmtol dispit nsam initw ) pdf isInt fixed init = do
+nmAdaMet (AdaMetRunPars nmtol dispit verbnm nsam initw ) pdf isInt fixed init = do
      let iniSim = genInitial (negate . pdf) isInt initw $ init
      io $ print iniSim
      let finalSim =  goNm (negate . pdf) isInt nmtol iniSim
