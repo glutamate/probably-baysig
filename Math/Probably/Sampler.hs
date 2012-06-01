@@ -31,7 +31,7 @@ main = do
 
 -}
 
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, ScopedTypeVariables #-}
 
 module Math.Probably.Sampler where
 
@@ -51,12 +51,14 @@ import Control.Spoon
 type Seed = PureMT
 
 
-newtype Sampler a = Sam {unSam :: Seed -> (a, Seed) }
+data Sampler a = Sam {unSam :: Seed -> (a, Seed) }
+               | Samples [a]
 
 instance Functor Sampler where
     fmap f (Sam sf) = Sam $ \rs -> let (x,rs') = sf rs in
                                    (f x, rs')
-
+    fmap f (Samples xs) = Samples $ map f xs
+ 
 instance Applicative Sampler where
     pure x = Sam (\rs-> (x, rs))
     (Sam sff) <*> (Sam sfx) = Sam $ \rs-> let (f ,rs') = sff rs 
@@ -65,8 +67,16 @@ instance Applicative Sampler where
 
 instance Monad Sampler where
     return = pure
-    (Sam sf) >>= f = Sam $ \rs-> let (x, rs') = sf rs in
-                               (unSam $ f x) rs'
+    (Sam sf) >>= f = Sam $ \rs-> let (x, rs'::Seed) = sf rs 
+                                     nextProb = f x
+                                 in case nextProb of
+                                      Sam g -> g rs'
+                                      Samples xs -> primOneOf xs rs'
+    (Samples xs) >>= f = Sam $ \rs-> let (x, rs'::Seed) = primOneOf xs rs
+                                         nextProb = f x
+                                     in case nextProb of
+                                          Sam g -> g rs'
+                                          Samples ys -> primOneOf ys rs'
 
 -- | given a seed, return an infinite list of draws from sampling function
 runSampler :: Seed -> Sampler a -> [a]
@@ -227,6 +237,11 @@ discrete weightedSamples =
          return . snd . fromJust $ find ((>=u*sumWeights) . fst) cummWeightedSamples
 
 
+primOneOf :: [a] -> Seed -> (a, Seed)
+primOneOf xs seed 
+   = let (u, nextSeed) = randomDouble seed
+         idx = floor $ (realToFrac u)*(realToFrac $ length xs )
+     in (xs !! idx, nextSeed)
 
 oneOf :: [a] -> Sampler a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
