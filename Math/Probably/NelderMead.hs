@@ -111,6 +111,7 @@ goNm f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
              in case () of
                   _ |  fdiff < tol -> nsim
                     |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
+                    |  any (isNaN) (map snd nsim) -> sim
                     |  otherwise   -> go f nsim
 
 goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
@@ -123,6 +124,7 @@ goNmVerbose f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
              in case () of
                   _ |  fdiff < tol -> nsim
                     |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
+                    |  any (isNaN) (map snd nsim) -> sim
                     |  otherwise   -> go f nsim
 
 

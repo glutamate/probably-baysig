@@ -643,7 +643,7 @@ adaMet freeze pdf am@(AMPar xi mn cov sf pi (realToFrac -> t) naccept) = do
    let (xaccept, nnaccept, paccept) = if acceptIt
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
-   if freeze || (t > 1000 && (realToFrac naccept / t < 0.16))
+   if freeze || (t > 1000 && (realToFrac naccept / t < 0.20))
       then return $ AMPar xaccept mn cov sf paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
