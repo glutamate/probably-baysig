@@ -61,18 +61,20 @@ data AdaMetRunPars = AdaMetRunPars
        displayIt :: Maybe (L.Vector Double -> String),
        verboseNM :: Bool,
        amnsam :: Int,
-       initw:: Int -> Double}
+       initw:: Int -> Double,
+       minNM ::Int,
+       maxNM ::Int }
 
-defaultAM = AdaMetRunPars 0.5 Nothing False 1000 $ const 0.02
+defaultAM = AdaMetRunPars 0.5 Nothing False 1000 (const 0.02) 100 1000
 
 traceit s x = trace (s++show x) x
 
 laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
               -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
-laplaceApprox (AdaMetRunPars nmtol dispit verbnm nsam initw) pdf isInt fixed init =
+laplaceApprox (AdaMetRunPars nmtol dispit verbnm nsam initw minNM maxNM) pdf isInt fixed init =
      let iniSim = genInitial (negate . pdf) isInt initw $ init
-         finalSim = if verbnm then goNmVerbose (negate . pdf) isInt nmtol iniSim 
-                              else goNm (negate . pdf) isInt nmtol iniSim 
+         finalSim = {-if verbnm then goNmVerbose (negate . pdf) isInt nmtol minNM maxNM iniSim 
+                              else -} goNm (negate . pdf) isInt nmtol minNM maxNM iniSim 
 
          (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt fixed finalSim 
 --     io $ print maxPost
@@ -86,10 +88,10 @@ laplaceApprox (AdaMetRunPars nmtol dispit verbnm nsam initw) pdf isInt fixed ini
 
 nmAdaMet :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
             -> L.Vector Double -> RIO [L.Vector Double]
-nmAdaMet (AdaMetRunPars nmtol dispit verbnm nsam initw ) pdf isInt fixed init = do
+nmAdaMet (AdaMetRunPars nmtol dispit verbnm nsam initw minNM maxNM ) pdf isInt fixed init = do
      let iniSim = genInitial (negate . pdf) isInt initw $ init
      io $ print iniSim
-     let finalSim =  goNm (negate . pdf) isInt nmtol iniSim
+     let finalSim =  goNm (negate . pdf) isInt nmtol minNM maxNM iniSim
      io $ print finalSim
      let (maxPost,hess) = hessianFromSimplex (negate . pdf) isInt fixed finalSim 
 --     io $ print maxPost

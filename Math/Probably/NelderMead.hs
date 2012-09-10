@@ -104,14 +104,14 @@ genInitial f isInt h x0 = sim where
   mkv d = with f $ x0 + unit d
   sim = (x0, f x0) : map mkv [0..n-1] 
 
-goNm :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
-goNm f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
-  go f sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
-                 fdiff = abs $ snd (last nsim) - snd (head nsim) 
-             in case () of
-                  _ |  fdiff < tol -> nsim
-                    |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
-                    |  otherwise   -> go f nsim
+goNm :: (Vector Double -> Double) -> [Int] -> Double -> Int -> Int -> Simplex -> Simplex
+goNm f' isInt tol nmin nmax sim' = go f' 0 $ sortBy (comparing snd) sim'  where
+  go f i sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
+                   fdiff = abs $ snd (last nsim) - snd (head nsim) 
+               in case () of
+                      _ |  (fdiff < tol && i>nmin) || i>nmax -> nsim
+                        |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
+                        |  otherwise   -> go f (i+1) nsim 
 
 goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
 goNmVerbose f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
