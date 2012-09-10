@@ -130,6 +130,27 @@ runAdaMetRIO n freeze ampar pdf = do
                                go (nn-1) ns (ampn) $ (ampPar ampn):vs
            chsz = n `div` 50
 
+runAdaMetRIOtoFile :: Int -> Int -> String -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO ()
+runAdaMetRIOtoFile n thinn fileNm freeze ampar pdf = do
+    seed <- S.get
+    h <- io $ openFile (fileNm) WriteMode 
+    (nseed) <- io $ go h n seed ampar
+    S.put nseed
+    return ()
+    --return xs
+     where go h 0 s amp  = do print $ amp
+                              return s --  return (s, reverse vs)
+           go h nn s amp = do let (!ampn, !ns) = unSam (adaMet freeze pdf amp) s
+                              when(nn `rem` chsz==0) $ 
+                                   putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++
+                                              showV (ampPar ampn) ++" LH="++
+                                              printf "%.3g" (pdf (ampPar ampn)) ++ 
+                                              " accept="++acceptS ampn
+                              when (nn `rem` thinn == 0) $ do
+                                   hPutStrLn h $ show $ L.toList $ ampPar ampn
+                              go h (nn-1) ns (ampn) 
+           chsz = n `div` 50
+
 
 showV v = "<"++intercalate "," (map (printf "%.4g") $ L.toList v)++">"
 acceptS ampar  | count ampar == 0 = "0/0"
