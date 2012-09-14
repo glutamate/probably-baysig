@@ -47,6 +47,6 @@ Exposed-modules:     Math.Probably.Sampler,
 
 			
 Build-depends:       base, mersenne-random-pure64, 
-                     binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq
+                     binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector
 
 ghc-prof-options:    -auto-all

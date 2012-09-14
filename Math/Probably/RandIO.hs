@@ -16,6 +16,9 @@ import Data.IORef
 import qualified Numeric.LinearAlgebra as L
 import Math.Probably.NelderMead
 
+import qualified Data.Vector.Storable as V
+import Statistics.Autocorrelation
+
 import Text.Printf
 import Data.List
 
@@ -129,6 +132,45 @@ runAdaMetRIO n freeze ampar pdf = do
                                    putStrLn $ show (((n-nn) `div` chsz)*2)++"%: " ++showV (ampPar ampn) ++" LH="++printf "%.3g" (pdf (ampPar ampn)) ++ " accept="++acceptS ampn
                                go (nn-1) ns (ampn) $ (ampPar ampn):vs
            chsz = n `div` 50
+
+runAdaMetRioESS :: Int -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
+runAdaMetRioESS want_ess freeze ampar pdf = do
+    seed <- S.get
+    (nseed, xs, amp) <- io $ go 200 seed ampar []
+    S.put nseed
+    return xs
+     where go (0::Int) s amp vs = goChunks s amp vs
+           go nn s amp vs = do let (!ampn, !ns) = unSam (adaMet freeze pdf amp) s
+                               go (nn-1) ns (ampn) $ (ampPar ampn):vs
+ 
+           goChunks s amp [] = do 
+              (nseed, xs, namp) <- go 200 s amp []
+              goChunks nseed namp xs
+           goChunks s amp xs = do
+              let have_ess = calcESS xs
+                  drawn = length xs
+              putStrLn $ "ESS="++show have_ess++" from "++show drawn
+                       ++" drawn accept ratio="++acceptS amp
+              if have_ess > realToFrac want_ess
+                 then return (s, xs, amp)
+                 else do
+                   let need_ess = min (realToFrac $ want_ess `div` 5) 
+                                    $ max 1 
+                                    $ realToFrac want_ess - have_ess
+                       samples_per_es = realToFrac drawn/have_ess
+                       to_do = min 2000 $ samples_per_es * need_ess
+                   putStrLn $ "now doing "++ show to_do
+                   go (round to_do) s amp xs 
+                   
+
+
+calcESS :: [L.Vector Double] -> Double
+calcESS mcmcOut = 
+  let ndims = L.dim $ head mcmcOut
+      len = realToFrac (length mcmcOut)
+      acfs = map (\i->  V.sum $ V.takeWhile (>0) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
+      ess = foldl1' min $ flip map acfs $ \acfsum-> (len/(1+2*acfsum)) -- realToFrac samples/(1+2*acfsum)
+  in ess
 
 runAdaMetRIOtoFile :: Int -> Int -> String -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO ()
 runAdaMetRIOtoFile n thinn fileNm freeze ampar pdf = do
