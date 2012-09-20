@@ -158,7 +158,7 @@ runAdaMetRioESS want_ess freeze ampar pdf = do
                                     $ max 1 
                                     $ realToFrac want_ess - have_ess
                        samples_per_es = realToFrac drawn/have_ess
-                       to_do = min 2000 $ samples_per_es * need_ess
+                       to_do = max 50 $ min 2000 $ samples_per_es * need_ess
                    putStrLn $ "now doing "++ show to_do
                    go (round to_do) s amp xs 
                    
