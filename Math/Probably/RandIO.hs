@@ -147,8 +147,9 @@ runAdaMetRioESS want_ess freeze ampar pdf = do
               (nseed, xs, namp) <- go 200 s amp []
               goChunks nseed namp xs
            goChunks s amp xs = do
-              let have_ess = calcESS xs
+              let have_ess = min (realToFrac $ count_accept amp) $  calcESS  xs
                   drawn = length xs
+              putStrLn $ show $ ampPar amp
               putStrLn $ "ESS="++show have_ess++" from "++show drawn
                        ++" drawn accept ratio="++acceptS amp
               if have_ess > realToFrac want_ess
@@ -161,14 +162,55 @@ runAdaMetRioESS want_ess freeze ampar pdf = do
                        to_do = max 50 $ min 2000 $ samples_per_es * need_ess
                    putStrLn $ "now doing "++ show to_do
                    go (round to_do) s amp xs 
-                   
+
+runFixMetRioESS :: Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
+runFixMetRioESS want_ess ampar pdf = do
+    seed <- S.get
+    (nseed, xs, amp) <- io $ go 200 seed ampar []
+    S.put nseed
+    return xs
+     where go (0::Int) s amp vs = goChunks s amp vs
+           go nn s amp vs = do let (!ampn, !ns) = unSam (fixedMet pdf amp) s
+                               go (nn-1) ns (ampn) $ (ampPar ampn):vs
+ 
+           goChunks s amp [] = do 
+              (nseed, xs, namp) <- go 200 s amp []
+              goChunks nseed namp xs
+           goChunks s amp xs = do
+              let have_ess = min (realToFrac $ count_accept amp) $ calcESS  xs
+                  drawn = length xs
+              --putStrLn $ show $ ampPar amp
+              putStrLn $ "ESS="++show have_ess++" from "++show drawn
+                       ++" drawn accept ratio="++acceptS amp
+              if have_ess > realToFrac want_ess
+                 then return (s, xs, amp)
+                 else do
+                   let need_ess = min (realToFrac $ want_ess `div` 5) 
+                                    $ max 1 
+                                    $ realToFrac want_ess - have_ess
+                       samples_per_es = realToFrac drawn/have_ess
+                       to_do = max 50 $ min 2000 $ samples_per_es * need_ess
+                   putStrLn $ "now doing "++ show to_do
+                   go (round to_do) s amp xs 
+
+runFixMetRioBurn :: Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO AMPar
+runFixMetRioBurn burn ampar pdf = do
+    seed <- S.get
+    (nseed, amp) <- io $ go burn seed ampar
+    S.put nseed
+    return amp
+     where go (0::Int) s amp  = return (s,amp)
+           go nn s amp  = do let (!ampn, !ns) = unSam (fixedMet pdf amp) s
+                             go (nn-1) ns (ampn) 
+ 
+traceHead vs = trace ("head="++(show $ vs L.@> 0)) vs  
 
 
-calcESS :: [L.Vector Double] -> Double
-calcESS mcmcOut = 
+calcESS ::  [L.Vector Double] -> Double
+calcESS  mcmcOut = 
   let ndims = L.dim $ head mcmcOut
-      len = realToFrac (length mcmcOut)
-      acfs = map (\i->  V.sum $ V.takeWhile (>0) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
+      len = realToFrac (length mcmcOut) 
+      acfs = map (\i->  V.sum $ V.takeWhile (>0.02) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
       ess = foldl1' min $ flip map acfs $ \acfsum-> (len/(1+2*acfsum)) -- realToFrac samples/(1+2*acfsum)
   in ess
 

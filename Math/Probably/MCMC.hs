@@ -16,6 +16,7 @@ import Debug.Trace
 import Data.Binary
 import qualified Numeric.LinearAlgebra as L
 import qualified Data.Packed.Matrix as L
+import Control.Spoon
 
 
 --http://videolectures.net/mlss08au_freitas_asm/
@@ -631,6 +632,30 @@ runAdaMet n freeze pdf amp = do
        ys <- runAdaMet (n-1) freeze pdf amp'
        return $ ampPar amp':ys
 
+initFixMet :: AMPar -> AMPar
+initFixMet am@(AMPar xi mn cov' sf pi t naccept)  = 
+   let dims = L.dim xi
+       cov = L.scale 0.2 cov'
+       scalar = (sf*sf/realToFrac dims)::Double
+       cholCov = case spoon $ L.chol cov of
+                   Just i -> i
+                   Nothing -> L.chol $ P.posdefify cov
+   in AMPar xi mn cholCov sf pi t naccept
+
+
+fixedMet :: P.PDF (L.Vector Double) ->  AMPar -> Sampler AMPar 
+fixedMet pdf am@(AMPar xi mn cholCov sf pi (t) naccept) = do
+   xstar <-  multiNormalByChol xi cholCov
+   let tr = realToFrac t
+   let pstar = pdf xstar
+   acceptIt <- accept am pi pstar
+   return $ if acceptIt
+      then AMPar xstar mn (L.scale ((1+k/tr)**3) cholCov) sf pstar (t+1) (naccept+1)
+      else AMPar xi mn (L.scale (1-k/tr) cholCov) sf pi (t+1) naccept
+                    
+k = 50
+
+
 adaMet :: Bool -> P.PDF (L.Vector Double) -> 
           AMPar -> Sampler AMPar 
 adaMet freeze pdf am@(AMPar xi mn cov sf pi (realToFrac -> t) naccept) = do
@@ -643,7 +668,7 @@ adaMet freeze pdf am@(AMPar xi mn cov sf pi (realToFrac -> t) naccept) = do
    let (xaccept, nnaccept, paccept) = if acceptIt
                     then {-trace ("ACCEPT "++show xstar) -} (xstar, naccept+1, pstar)
                     else {- trace ("REJECT "++show xstar) -} (xi, naccept, pi)
-   if freeze || (t > 1000 && (realToFrac naccept / t < 0.20))
+   if freeze || (t > 10000 && (realToFrac naccept / t < 0.20))
       then return $ AMPar xaccept mn cov sf paccept (round $ t+1) nnaccept
       else let nmn = L.scale (recip $ t+1) $ xaccept + L.scale t mn
                m0 = L.scale t (L.outer mn mn) - L.scale (t+1) (L.outer nmn nmn) + L.outer xaccept xaccept
