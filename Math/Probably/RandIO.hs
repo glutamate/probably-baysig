@@ -72,6 +72,37 @@ defaultAM = AdaMetRunPars 0.5 Nothing False 1000 (const 0.02) 100 1000
 
 traceit s x = trace (s++show x) x
 
+
+getInitialCov :: Sampler [Double] 
+              -> ([Double] -> Double) 
+              -> RIO (Double, L.Vector Double, L.Matrix Double)
+getInitialCov inisam posteriorL = go 500 where 
+  pdfv v = posteriorL (L.toList v)
+  go n | n < 1 
+         = error $ "can't find suitable initial conditions. Try a narrower prior"
+       | otherwise =  do
+    initialv <- fmap L.fromList $ sample inisam
+    let iniSimplex = genInitial (negate . pdfv) [] (const 0.02)  $ initialv
+    if any (nanOrInf . snd) iniSimplex
+       then go (n-1)
+       else runNM n iniSimplex
+  runNM n iniSimplex = do  
+    let finalSim = goNm (negate . pdfv) [] 1 100 1000 iniSimplex 
+        (maxPost,hess) = hessianFromSimplex (negate . pdfv) [] [] finalSim 
+    if any nanOrInf $ concat $ L.toLists hess
+       then go (n-10)
+       else getCov finalSim hess
+  getCov finalSim hess = do
+    let cor = case L.mbCholSH $ hess of 
+            Just _ -> L.inv hess
+            Nothing -> case L.mbCholSH $ PDF.posdefify hess of
+                         Just _ -> L.inv $ PDF.posdefify hess
+                         Nothing -> L.diag $ L.mapVector (recip) 
+                                           $ L.takeDiag $ hess
+        initV = fst $ head $ finalSim
+    return (snd $ head $ finalSim, 
+            initV, cor)
+
 laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
               -> L.Vector Double -> (L.Vector Double, Maybe (L.Matrix Double), Simplex)
 laplaceApprox (AdaMetRunPars nmtol dispit verbnm nsam initw minNM maxNM) pdf isInt fixed init =
@@ -210,7 +241,7 @@ calcESS ::  [L.Vector Double] -> Double
 calcESS  mcmcOut = 
   let ndims = L.dim $ head mcmcOut
       len = realToFrac (length mcmcOut) 
-      acfs = map (\i->  V.sum $ V.takeWhile (>0.02) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
+      acfs = map (\i->  V.sum $ V.takeWhile (>0.1) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
       ess = foldl1' min $ flip map acfs $ \acfsum-> (len/(1+2*acfsum)) -- realToFrac samples/(1+2*acfsum)
   in ess
 
