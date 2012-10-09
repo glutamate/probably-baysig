@@ -178,7 +178,8 @@ runAdaMetRioESS want_ess freeze ampar pdf = do
               (nseed, xs, namp) <- go 200 s amp []
               goChunks nseed namp xs
            goChunks s amp xs = do
-              let have_ess = min (realToFrac $ count_accept amp) $  calcESS  xs
+              let have_ess = min (realToFrac $ count_accept amp) 
+                                 $ calcESS  want_ess xs 
                   drawn = length xs
               putStrLn $ show $ ampPar amp
               putStrLn $ "ESS="++show have_ess++" from "++show drawn
@@ -208,7 +209,8 @@ runFixMetRioESS want_ess ampar pdf = do
               (nseed, xs, namp) <- go 200 s amp []
               goChunks nseed namp xs
            goChunks s amp xs = do
-              let have_ess = min (realToFrac $ count_accept amp) $ calcESS  xs
+              let have_ess = min (realToFrac $ count_accept amp) 
+                             $ calcESS want_ess xs
                   drawn = length xs
               --putStrLn $ show $ ampPar amp
               putStrLn $ "ESS="++show have_ess++" from "++show drawn
@@ -236,9 +238,20 @@ runFixMetRioBurn burn ampar pdf = do
  
 traceHead vs = trace ("head="++(show $ vs L.@> 0)) vs  
 
+most_es_per_s = 20
 
-calcESS ::  [L.Vector Double] -> Double
-calcESS  mcmcOut = 
+calcESS :: Int -> [L.Vector Double] -> Double
+calcESS  want_ess mcmcOut 
+   | L.dim (head mcmcUut) < realToFrac (want_ess * most_es_per_s)
+      = calcESSprim mcmcOut
+   | otherwise = let thinFactor = floor $ (L.dim (head mcmcUut) / realToFrac (want_ess * most_es_per_s) - 1)
+                 in calcESSprim $ map (thinV thinFactor) mcmcOut
+
+thinV 0 = id
+thinV thin = V.ifilter $ \ix _ -> ix `mod` thin == 0
+
+calcESSprim ::  [L.Vector Double] -> Double
+calcESSprim mcmcOut = 
   let ndims = L.dim $ head mcmcOut
       len = realToFrac (length mcmcOut) 
       acfs = map (\i->  V.sum $ V.takeWhile (>0.1) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
