@@ -242,10 +242,11 @@ most_es_per_s = 20
 
 calcESS :: Int -> [L.Vector Double] -> Double
 calcESS  want_ess mcmcOut 
-   | L.dim (head mcmcUut) < realToFrac (want_ess * most_es_per_s)
+   | L.dim (head mcmcOut) <  want_ess * most_es_per_s * 2
       = calcESSprim mcmcOut
-   | otherwise = let thinFactor = floor $ (L.dim (head mcmcUut) / realToFrac (want_ess * most_es_per_s) - 1)
-                 in calcESSprim $ map (thinV thinFactor) mcmcOut
+   | otherwise 
+      = let thinFactor = L.dim (head mcmcOut) `div` ( want_ess * most_es_per_s)
+        in calcESSprim $ map (thinV $ thinFactor - 1) mcmcOut
 
 thinV 0 = id
 thinV thin = V.ifilter $ \ix _ -> ix `mod` thin == 0
