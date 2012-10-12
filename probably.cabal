@@ -27,26 +27,53 @@ License-file:        LICENSE
 Author:              Tom Nielsen
 Maintainer:          tanielsen@gmail.com
 build-type:          Simple
-ghc-options:         -O2
-Exposed-modules:     Math.Probably.Sampler,
-                     Math.Probably.FoldingStats,
-                     Math.Probably.Student,
-		     Math.Probably.PDF,
-		     Math.Probably.SDE,
-		     Math.Probably.LinearPDF,
-		     Math.Probably.StochFun,
-		     Math.Probably.MCMC,
-		     Math.Probably.KMeans,
-		     Math.Probably.GlobalRandoms,
-		     Math.Probably.Distribution,
-		     Math.Probably.NelderMead,
-		     Math.Probably.Unscented,
-		     Math.Probably.IterLap,
---		     Math.Probably.JAGS
-                     Math.Probably.RandIO
+Cabal-Version: 	     >= 1.8
 
-			
-Build-depends:       base, mersenne-random-pure64, 
-                     binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector
+Library
+   ghc-options:         -O2
+   Exposed-modules:     Math.Probably.Sampler,
+                        Math.Probably.FoldingStats,
+                        Math.Probably.Student,
+                        Math.Probably.PDF,
+                        Math.Probably.SDE,
+                        Math.Probably.LinearPDF,
+                        Math.Probably.StochFun,
+                        Math.Probably.MCMC,
+                        Math.Probably.KMeans,
+                        Math.Probably.GlobalRandoms,
+                        Math.Probably.Distribution,
+                        Math.Probably.NelderMead,
+                        Math.Probably.Unscented,
+                        Math.Probably.IterLap,
+--                   Math.Probably.JAGS
+                        Math.Probably.RandIO
 
-ghc-prof-options:    -auto-all
+                        
+   Build-depends:       base, mersenne-random-pure64, 
+                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector
+
+   ghc-prof-options:    -auto-all
+
+Executable testMCMC
+   Main-Is:           testMCMC.hs
+   Build-depends:       base, mersenne-random-pure64, 
+                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector,ad
+   other-modules:       Math.Probably.Sampler,
+                        Math.Probably.FoldingStats,
+                        Math.Probably.Student,
+                        Math.Probably.PDF,
+                        Math.Probably.SDE,
+                        Math.Probably.LinearPDF,
+                        Math.Probably.StochFun,
+                        Math.Probably.MCMC,
+                        Math.Probably.KMeans,
+                        Math.Probably.GlobalRandoms,
+                        Math.Probably.Distribution,
+                        Math.Probably.NelderMead,
+                        Math.Probably.Unscented,
+                        Math.Probably.IterLap,
+--                      Math.Probably.JAGS
+                        Math.Probably.RandIO
+
+   ghc-prof-options:    -auto-all
+   ghc-options:         -O2 

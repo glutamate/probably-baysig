@@ -73,15 +73,15 @@ defaultAM = AdaMetRunPars 0.5 Nothing False 1000 (const 0.02) 100 1000
 traceit s x = trace (s++show x) x
 
 
-getInitialCov :: Sampler [Double] 
-              -> ([Double] -> Double) 
+getInitialCov :: Sampler (L.Vector Double)
+              -> (L.Vector Double -> Double) 
               -> RIO (Double, L.Vector Double, L.Matrix Double)
 getInitialCov inisam posteriorL = go 500 where 
-  pdfv v = posteriorL (L.toList v)
+  pdfv v = posteriorL v
   go n | n < 1 
          = error $ "can't find suitable initial conditions. Try a narrower prior"
        | otherwise =  do
-    initialv <- fmap L.fromList $ sample inisam
+    initialv <- sample inisam
     let iniSimplex = genInitial (negate . pdfv) [] (const 0.02)  $ initialv
     if any (nanOrInf . snd) iniSimplex
        then go (n-1)
@@ -100,7 +100,7 @@ getInitialCov inisam posteriorL = go 500 where
                          Nothing -> L.diag $ L.mapVector (recip) 
                                            $ L.takeDiag $ hess
         initV = fst $ head $ finalSim
-    return (snd $ head $ finalSim, 
+    return (negate $ snd $ head $ finalSim, 
             initV, cor)
 
 laplaceApprox :: AdaMetRunPars -> PDF.PDF (L.Vector Double) -> [Int] -> [((Int, Int), Double)] 
@@ -222,7 +222,7 @@ runFixMetRioESS want_ess ampar pdf = do
                                     $ max 1 
                                     $ realToFrac want_ess - have_ess
                        samples_per_es = realToFrac drawn/have_ess
-                       to_do = max 50 $ min 2000 $ samples_per_es * need_ess
+                       to_do = max 50 $ min 2000 $ samples_per_es * need_ess * 1.2
                    putStrLn $ "now doing "++ show to_do
                    go (round to_do) s amp xs 
 
@@ -238,7 +238,7 @@ runFixMetRioBurn burn ampar pdf = do
  
 traceHead vs = trace ("head="++(show $ vs L.@> 0)) vs  
 
-most_es_per_s = 20
+most_es_per_s = 10
 
 calcESS :: Int -> [L.Vector Double] -> Double
 calcESS  want_ess mcmcOut 
@@ -248,8 +248,11 @@ calcESS  want_ess mcmcOut
       = let thinFactor = L.dim (head mcmcOut) `div` ( want_ess * most_es_per_s)
         in calcESSprim $ map (thinV $ thinFactor - 1) mcmcOut
 
-thinV 0 = id
-thinV thin = V.ifilter $ \ix _ -> ix `mod` thin == 0
+thinV 0  v = v --id
+--thinV thin = V.ifilter $ \ix _ -> ix `mod` thin == 0
+
+thinV thin v = V.generate ((V.length v `div` (thin+1))+1) $ \i -> (V.!) v  (i*(thin))
+
 
 calcESSprim ::  [L.Vector Double] -> Double
 calcESSprim mcmcOut = 
@@ -414,3 +417,34 @@ metSample2PC st prop p (par@(Param j t tt lhi curw ada ini xi),y)
         return $ if u < accept par pi pstar
                       then Param (nj+1) (nt+1) (tt+1) pstar nextw ada ini xstar
                       else Param nj (nt+1) (tt+1) pi nextw ada ini xi
+
+
+
+bestOfTwoCov inisam posterior = do
+   set1@(postval1,_,_) <- getInitialCov inisam posterior
+   set2@(postval2,_,_) <- getInitialCov inisam posterior
+   if postval1>postval2 -- I THINK
+      then return set1
+      else return set2
+
+
+mkAMPar init cov initp = AMPar init init cov 2.4 initp 10 5
+
+initAdaMetFromCov nsam pdf initv retries cov = do
+  --lift $ putStrLn $ "starting from existing cov; try number "++ show retries
+  iniampar <- sample $ initialAdaMetFromCov nsam (pdf) initv
+                                                 (PDF.posdefify $ cov) 
+  --lift $ print iniampar
+  let rate = realToFrac (count_accept iniampar) / realToFrac nsam
+  case () of
+     _ | retries > 8 -> do lift $ putStrLn "initals ok." 
+                           return iniampar
+     _ | rate > 0.5 -> initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 2 cov 
+     _ | rate > 0.40 -> initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 1.5 cov 
+     _ | rate < 0.025 ->  initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 0.1 cov 
+     _ | rate < 0.04 ->  initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 0.2 cov 
+     _ | rate < 0.12 ->  initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 0.3 cov 
+     _ | rate < 0.16 ->  initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 0.5 cov 
+     _ | rate < 0.20 ->  initAdaMetFromCov nsam pdf initv (retries +1) $ L.scale 0.8 cov 
+     _ | otherwise -> do lift $ putStrLn "initals ok." 
+                         return iniampar  

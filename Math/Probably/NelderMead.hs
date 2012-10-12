@@ -114,19 +114,19 @@ goNm f' isInt tol nmin nmax sim' = go f' 0 $ sortBy (comparing snd) sim'  where
                         |  any (isNaN) (map snd nsim) -> sim
                         |  otherwise   -> go f (i+1) nsim 
 
-goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Simplex -> Simplex
-goNmVerbose f' isInt tol sim' = go f' $ sortBy (comparing snd) sim' where
-  go f sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
-                 fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
+goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Int -> Int -> Simplex -> Simplex
+goNmVerbose f' isInt tol nmin nmax sim' = go f' 0 $ sortBy (comparing snd) sim' where
+  go f i sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
+                   fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
                                 show (fst (last nsim)) ++ "\n"++
                                 show (map snd nsim)) 
                             abs $ snd (last nsim) - snd (head nsim) 
-             in case () of
-                  _ |  fdiff < tol -> nsim
-                    |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
-                    |  any (isNaN) (map snd nsim) -> sim
-                    |  otherwise   -> go f nsim
-
+               in case () of
+                    _ |  (fdiff < tol && i>nmin) || i>nmax -> nsim
+                      |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
+                      |  any (isNaN) (map snd nsim) -> sim
+                      |  otherwise   -> go f (i+1) nsim
+  
 
 nmStep :: (Vector Double -> Double) -> [Int] -> Simplex -> Simplex
 nmStep f isInt s0 = snext where

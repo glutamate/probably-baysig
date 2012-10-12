@@ -38,6 +38,10 @@ uniform from to = \x-> if x>=from && x <=to
 gauss :: (Real a, Floating a) => a-> a-> PDF a
 gauss mean sd x = realToFrac $ negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
 
+-- | Normal distribution by variance
+normal :: (Real a, Floating a) => a-> a-> a -> a
+normal mean var x = realToFrac $ 1 / log(sqrt(var*2*pi)) - (x-mean)**2/(2*var) 
+
 -- | Normal distribution, specialised for Doubles
 gaussD :: Double -> Double-> PDF Double
 gaussD mean sd x = negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
