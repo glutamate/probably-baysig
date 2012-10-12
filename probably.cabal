@@ -46,10 +46,11 @@ Library
                         Math.Probably.Unscented,
                         Math.Probably.IterLap,
 --                   Math.Probably.JAGS
-                        Math.Probably.RandIO
+                        Math.Probably.RandIO,
+                        Math.Probably.MALA
 
                         
-   Build-depends:       base, mersenne-random-pure64, 
+   Build-depends:       base, mersenne-random-pure64, ad,
                         binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector
 
    ghc-prof-options:    -auto-all
@@ -73,7 +74,7 @@ Executable testMCMC
                         Math.Probably.Unscented,
                         Math.Probably.IterLap,
 --                      Math.Probably.JAGS
-                        Math.Probably.RandIO
-
+                        Math.Probably.RandIO,
+                        Math.Probably.MALA
    ghc-prof-options:    -auto-all
    ghc-options:         -O2 

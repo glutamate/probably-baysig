@@ -248,10 +248,10 @@ calcESS  want_ess mcmcOut
       = let thinFactor = L.dim (head mcmcOut) `div` ( want_ess * most_es_per_s)
         in calcESSprim $ map (thinV $ thinFactor - 1) mcmcOut
 
-thinV 0  v = v --id
---thinV thin = V.ifilter $ \ix _ -> ix `mod` thin == 0
+thinV 0   =  id
+thinV thin = V.ifilter $ \ix _ -> ix `mod` thin == 0
 
-thinV thin v = V.generate ((V.length v `div` (thin+1))+1) $ \i -> (V.!) v  (i*(thin))
+--thinV thin v = V.generate ((V.length v `div` (thin+1))+1) $ \i -> (V.!) v  (i*(thin))
 
 
 calcESSprim ::  [L.Vector Double] -> Double
