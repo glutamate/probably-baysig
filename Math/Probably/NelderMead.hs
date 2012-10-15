@@ -118,7 +118,7 @@ goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Int -> Int -> Sim
 goNmVerbose f' isInt tol nmin nmax sim' = go f' 0 $ sortBy (comparing snd) sim' where
   go f i sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
                    fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
-                                show (fst (last nsim)) ++ "\n"++
+                                show (fst (last nsim)) ++ "\n#"++show i++": "++
                                 show (map snd nsim)) 
                             abs $ snd (last nsim) - snd (head nsim) 
                in case () of

@@ -48,11 +48,11 @@ mala1 cov pdf (MalaPar xi pi mbgrad sigma tr tracc) = do
   let tr' = max 1 tr
   if u < exp ratio
      then return $ MalaPar xstar pstar (Just gradientStar) 
-                           (if tr<300000 then (min 1.4 $ 1+kmala/tr')*sigma else sigma) 
+                           ((min 1.4 $ 1+kmala/tr')*sigma) 
                            (tr+1) (tracc+1)
 --                           sigma (tr+1) (tracc+1)
      else return $ MalaPar xi pi (Just gradienti) 
-                           (if tr<300000 then (max 0.7143 $ 1-kmala/tr')**1.3*sigma else sigma) 
+                           ((max 0.7143 $ 1-kmala/tr')**1.3*sigma) 
                            (tr+1) tracc
 --                           sigma (tr+1) tracc
 
@@ -120,7 +120,7 @@ runMalaRioCodaESS cov pdf want_ess xi = do
                     return $ map snd xs2 
     let go mp n xs = do
             (mp2, xs2) <- runMalaMP cov pdf n mp []
-            if  mannWhitneyUtest TwoTailed 0.1 (U.fromList $ map fst xs2)
+            if  mannWhitneyUtest TwoTailed 0.05 (U.fromList $ map fst xs2)
                                             (U.fromList $ map fst xs) /= Just NotSignificant
                then go mp2 (round $ realToFrac n*1.5) xs2
                else converged mp2 (xs2++xs)
