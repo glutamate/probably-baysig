@@ -57,7 +57,7 @@ Library
 
 Executable testMCMC
    Main-Is:           testMCMC.hs
-   Build-depends:       base, mersenne-random-pure64, 
+   Build-depends:       base, mersenne-random-pure64, gnewplot,
                         binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector,ad
    other-modules:       Math.Probably.Sampler,
                         Math.Probably.FoldingStats,

@@ -31,20 +31,24 @@ mala1 :: Matrix Double -> (forall a. (Real a, Floating a) => [a]->a)
 mala1 cov pdf (MalaPar xi pi mbgrad sigma tr tracc) = do
   let pdfv :: Vector Double -> Double
       pdfv v = pdf $ toList $ v
-  let gradient = case mbgrad of 
+  let gradienti = case mbgrad of 
                    Just lastgrad -> lastgrad
                    Nothing -> fromList $ grad pdf $ toList xi
-  let xstarMean = xi + scale (sigma/2) gradient
+  let xstarMean = xi + scale (sigma/2) gradienti
       xstarCov = scale sigma  cov
   xstar <- multiNormal xstarMean xstarCov
   u <- unitSample
+  let gradientStar = fromList $ grad pdf $ toList xstar
+  let revJumpMean = xstar + scale (sigma/2) gradientStar
   let pstar = pdfv xstar
-  let ratio = pstar -- + PDF.multiNormal xstar xstarCov xi 
-              - pi -- - PDF.multiNormal xi xstarCov xstar
+  let ratio = pstar  + PDF.multiNormal revJumpMean xstarCov xi
+              - pi  - PDF.multiNormal xstarMean xstarCov xstar
   let tr' = max 1 tr
   if u < exp ratio
-     then return $ MalaPar xstar pstar Nothing ((min 1.5 $ 1+kmala/tr')*sigma) (tr+1) (tracc+1)
-     else return $ MalaPar xi pi (Just gradient) ((max 0.75 $ 1-kmala/tr')**1.2*sigma) (tr+1) tracc
+     then return $ MalaPar xstar pstar (Just gradientStar) 
+                           ((min 1.5 $ 1+kmala/tr')*sigma) (tr+1) (tracc+1)
+     else return $ MalaPar xi pi (Just gradienti) 
+                           ((max 0.75 $ 1-kmala/tr')**1.3*sigma) (tr+1) tracc
 
   
 runMala :: Matrix Double -> (forall a. (Real a, Floating a) => [a]->a) 

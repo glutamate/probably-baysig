@@ -9,10 +9,19 @@ import Math.Probably.MALA
 import Math.Probably.FoldingStats
 import Math.Probably.Sampler
 import Control.Applicative
+import Control.Monad
 
 import Numeric.LinearAlgebra
 import Numeric.AD
 import Text.Printf
+
+import Graphics.Gnewplot.Exec
+import Graphics.Gnewplot.Types
+import Graphics.Gnewplot.Style
+import Graphics.Gnewplot.Panels
+import Graphics.Gnewplot.Instances
+import Graphics.Gnewplot.Histogram
+
 
 
 import qualified Control.Monad.State.Strict as S
@@ -39,15 +48,18 @@ pdfMVN = PDF.multiNormalByInv lndetMVN invSigmaMVN muMVN
 pdfI xs = sum $ map f $ zip xs (map varf [0..]) where
   f (x, var) = PDF.normal 10 var x
 
+pdfI2 xs = sum $ map f $ zip xs (map varf [0..]) where
+  f (x, var) = PDF.logNormal 0.1 var x
+
 main = runRIO $ do
   --make PDF, sample from it
   
   --io $ print covMVN
   let inisam = return $ fromList $ replicate d 1
       pdfIV = (pdfI . toList) 
-  (p1,init2, cor) <- bestOfTwoCov inisam pdfIV
+--  (p1,init2, cor) <- bestOfTwoCov inisam pdfIV
 --  io $ print init2
-  io $ putStrLn $ "p1 = "++show p1
+--  io $ putStrLn $ "p1 = "++show p1
 --  io $ print cor
 
 
@@ -56,25 +68,33 @@ main = runRIO $ do
                                              (scale 0.2 $ cor) 
   vsamples <- runFixMetRioESS 50 (initFixMet iniampar) (pdfIV)  -}
   --vsamples <- runMala cor pdfI 10000 init2
-  vsamples <- runMalaRioESS cor pdfI 100 init2 
+
+  vers <- forM [0..40] $ \i -> do
+    (p1,init2, cor) <- bestOfTwoCov inisam pdfIV
+    vsamples <- runMala cor pdfI 20000 init2 
   
-  let (means, (vars, cov)) = runStat (both meanF $ both varF $ covF 0 1) vsamples
-  io $ putStrLn $ "mala means = "++ (show $ toList means)
+    let (means, (vars, cov)) = runStat (both meanF $ both varF $ covF 0 1) vsamples
+    io $ putStrLn $ "mala means = "++ (show $ toList means)
 
-  let realvars = map varf [0..(d-1)]
+    let realvars = map varf [0..(d-1)]
 
-  io $ putStrLn $ "actual vars = "++ (show $ map varf [0..(d-1)])
-  io $ putStrLn $ "mala vars = "++ (show $ toList vars)
+    let varError = runStat meanF $ map (**2) $ zipWith (\got real-> (got-real)/real) ( toList vars) (realvars)
 
-  io $ putStrLn $ "var error = "++ (show $ runStat meanF $ map (**2) $ zipWith (\got real-> (got-real)/real) ( toList vars) (realvars))
+    io $ putStrLn $ "actual vars = "++ (show $ map varf [0..(d-1)])
+    io $ putStrLn $ "mala vars = "++ (show $ toList vars)
 
-  io $ putStrLn $ "actual cov = 0" -- ++ show (covf (0,1))
-  io $ putStrLn $ "mala cov = "++ show cov
+    io $ putStrLn $ "var error = "++ (show $ varError)
 
---  io $ putStrLn $ "mala ess = "++ show (calcESSprim $ map (thinV 10) vsamples)
+    io $ putStrLn $ "actual cov = 0" -- ++ show (covf (0,1))
+    io $ putStrLn $ "mala cov = "++ show cov
+    return varError
+  
+  io $ putStrLn $ "\n\nmean var error = "++show (runStat meanSEMF vers)
+--    io $ putStrLn $ "mala ess = "++ show (calcESSprim $ map (thinV 10) vsamples)
 
   --x <- sample $ mala1 cor pdfI (0.1, init2, 1)
-  
+  --io $ gnuplotOnScreen  $ (YFromZero $ HistoStyle "histeps" 50 $ map (@>0) vsamples)
+                          
   --io $ print x
   return ()
 
