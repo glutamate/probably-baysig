@@ -87,7 +87,7 @@ getInitialCov inisam posteriorL = go 500 where
        then go (n-1)
        else runNM n iniSimplex
   runNM n iniSimplex = do  
-    let finalSim = goNm (negate . pdfv) [] 1 100 1000 iniSimplex 
+    let finalSim = goNm (negate . pdfv) [] 0.01 100 1000 iniSimplex 
         (maxPost,hess) = hessianFromSimplex (negate . pdfv) [] [] finalSim 
     if any nanOrInf $ concat $ L.toLists hess
        then go (n-10)

@@ -40,7 +40,12 @@ gauss mean sd x = realToFrac $ negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi
 
 -- | Normal distribution by variance
 normal :: (Real a, Floating a) => a-> a-> a -> a
-normal mean var x = realToFrac $ 1 / log(sqrt(var*2*pi)) - (x-mean)**2/(2*var) 
+normal = normalLogPdf 
+
+normalLogPdf :: (Real a, Floating a) => a-> a-> a -> a
+normalLogPdf mean variance x
+   = log (1/sqrt (2.0*pi*variance)) + (0.0-((x-mean)*(x-mean)/(2*variance)))
+
 
 -- | Normal distribution, specialised for Doubles
 gaussD :: Double -> Double-> PDF Double
