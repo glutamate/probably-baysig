@@ -195,14 +195,14 @@ runAdaMetRioESS want_ess freeze ampar pdf = do
                    putStrLn $ "now doing "++ show to_do
                    go (round to_do) s amp xs 
 
-runFixMetRioESS :: Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
-runFixMetRioESS want_ess ampar pdf = do
+runFixMetRioESS :: Double -> Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
+runFixMetRioESS factor want_ess ampar pdf = do
     seed <- S.get
     (nseed, xs, amp) <- io $ go 200 seed ampar []
     S.put nseed
     return xs
      where go (0::Int) s amp vs = goChunks s amp vs
-           go nn s amp vs = do let (!ampn, !ns) = unSam (fixedMet pdf amp) s
+           go nn s amp vs = do let (!ampn, !ns) = unSam (fixedMet factor pdf amp) s
                                go (nn-1) ns (ampn) $ (ampPar ampn):vs
  
            goChunks s amp [] = do 
@@ -226,14 +226,24 @@ runFixMetRioESS want_ess ampar pdf = do
                    putStrLn $ "now doing "++ show to_do
                    go (round to_do) s amp xs 
 
-runFixMetRioBurn :: Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO AMPar
-runFixMetRioBurn burn ampar pdf = do
+runFixMetRio :: Double -> Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
+runFixMetRio factor samples ampar pdf = do
+    seed <- S.get
+    (nseed, xs, amp) <- io $ go samples seed ampar []
+    S.put nseed
+    return xs
+     where go (0::Int) s amp vs = return (s,vs, amp)
+           go nn s amp vs = do let (!ampn, !ns) = unSam (fixedMet factor pdf amp) s
+                               go (nn-1) ns (ampn) $ (ampPar ampn):vs
+ 
+runFixMetRioBurn :: Double -> Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO AMPar
+runFixMetRioBurn factor burn ampar pdf = do
     seed <- S.get
     (nseed, amp) <- io $ go burn seed ampar
     S.put nseed
     return amp
      where go (0::Int) s amp  = return (s,amp)
-           go nn s amp  = do let (!ampn, !ns) = unSam (fixedMet pdf amp) s
+           go nn s amp  = do let (!ampn, !ns) = unSam (fixedMet factor pdf amp) s
                              go (nn-1) ns (ampn) 
  
 traceHead vs = trace ("head="++(show $ vs L.@> 0)) vs  

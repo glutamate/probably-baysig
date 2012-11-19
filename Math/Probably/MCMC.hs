@@ -643,14 +643,14 @@ initFixMet am@(AMPar xi mn cov' sf pi t naccept)  =
    in AMPar xi mn cholCov sf pi t naccept
 
 
-fixedMet :: P.PDF (L.Vector Double) ->  AMPar -> Sampler AMPar 
-fixedMet pdf am@(AMPar xi mn cholCov sf pi (t) naccept) = do
+fixedMet :: Double -> P.PDF (L.Vector Double) ->  AMPar -> Sampler AMPar 
+fixedMet factor pdf am@(AMPar xi mn cholCov sf pi (t) naccept) = do
    xstar <-  multiNormalByChol xi cholCov
    let tr = realToFrac t + 1
    let pstar = pdf xstar
    acceptIt <- accept am pi pstar
    return $ if acceptIt
-      then AMPar xstar mn (L.scale ((1+k/tr)**3) cholCov) sf pstar (t+1) (naccept+1)
+      then AMPar xstar mn (L.scale ((1+k/tr)**factor) cholCov) sf pstar (t+1) (naccept+1)
       else AMPar xi mn (L.scale (1-k/tr) cholCov) sf pi (t+1) naccept
                     
 k = 100
