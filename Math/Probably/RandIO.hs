@@ -226,6 +226,21 @@ runFixMetRioESS factor want_ess ampar pdf = do
                    putStrLn $ "now doing "++ show to_do
                    go (round to_do) s amp xs 
 
+runFixMetRioToFile :: Int -> Int -> String -> Double -> AMPar 
+                      -> PDF.PDF (L.Vector Double) -> RIO ()
+runFixMetRioToFile samples thinn fileNm factor ampar pdf = do
+    seed <- S.get
+    h <- io $ openFile (fileNm) WriteMode 
+    nseed <- io $ go h samples seed ampar []
+    S.put nseed
+    return ()
+     where go h (0::Int) s amp vs = return s
+           go h nn s amp vs = do let (!ampn, !ns) = unSam (fixedMet factor pdf amp) s
+                                 when (nn `rem` thinn == 0) $ do
+                                     hPutStrLn h $ show $ L.toList $ ampPar ampn
+                                 go h (nn-1) ns (ampn) $ (ampPar ampn):vs
+
+
 runFixMetRio :: Double -> Int -> AMPar -> PDF.PDF (L.Vector Double) -> RIO [L.Vector Double]
 runFixMetRio factor samples ampar pdf = do
     seed <- S.get
