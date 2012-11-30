@@ -134,6 +134,8 @@ runMalaRioCodaESS cov pdf want_ess xi = do
                         to_do = round $ samples_per_es * need_ess 
                     io $ putStrLn $ "running converged for "++show to_do
                     (mp2, xs2) <- runMalaMP cov pdf to_do (mp1 {mpFreezeSigma = True}) xs1
+                    io $ putStrLn $ "All done with: "
+                    io $ print mp2
                     return $ map snd xs2 
     let go mp n xs = do
             (mp2, xs2) <- runMalaMP cov pdf n mp []

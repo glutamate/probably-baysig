@@ -47,11 +47,13 @@ Library
                         Math.Probably.IterLap,
 --                   Math.Probably.JAGS
                         Math.Probably.RandIO,
+                        Math.Probably.BFGS,
                         Math.Probably.MALA
 
                         
    Build-depends:       base, mersenne-random-pure64, ad,
-                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector
+                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, 
+                        statistics, vector, data-default
 
    ghc-prof-options:    -auto-all
 
