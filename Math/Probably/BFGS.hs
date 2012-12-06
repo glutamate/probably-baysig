@@ -85,7 +85,7 @@ bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 = go 0 b0
           then Left "maximum iterations exceeded in bfgs"
           else case bfgsStepWith opt f df b of
             (True, b') -> Right (p b', h b')
-            (False, b') -> trace (show $ p b') $ go (iters+1) b'
+            (False, b') -> trace (show $ (p b', fp b')) $ go (iters+1) b'
         g0 = df p0
         b0 = BFGS p0 (f p0) g0 (-g0) (ident $ dim p0) (maxStep p0)
 

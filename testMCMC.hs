@@ -94,7 +94,7 @@ main = runRIO $ do
     io $ putStrLn $ "p1 = "++show p1
     --io $ print cor
 
-    mcmcres <-  runMalaRioCodaESS cor pdf2 50 init2 
+{-    mcmcres <-  runMalaRioCodaESS cor pdf2 50 init2 
     let vsamples =mcmcres
         --pseries = map fst mcmcres 
     let (means, (vars, cov)) = runStat (both meanF $ both varF $ covF 0 1) vsamples
@@ -118,7 +118,7 @@ main = runRIO $ do
     io $ gnuplotOnScreen  $ ("error_sd", zip [(0::Double)..] $ map (@>1) vsamples    )
     io $ gnuplotOnScreen  $ ("beta", zip [(0::Double)..] $ map (@>2) vsamples    )
     io $ gnuplotOnScreen  $ ("thedata", regrdata::[(Double,Double)])
-    
+-}    
  --   return varError
   
   --io $ putStrLn $ "\n\nmean var error = "++show (runStat meanSEMF vers)
