@@ -91,9 +91,7 @@ bfgsInit :: Fn -> GradFn -> Point -> Either String BFGS
 bfgsInit f df p0 = case (hasnan f0, hasnan g0) of
   (False, False) -> Right $ BFGS p0 f0 g0 (-g0) (ident n) (maxStep p0)
   errs -> Left $ nanMsg errs
-  where n = dim p0
-        f0 = trace ("bfgsInit (f p0): " ++ show p0 ++ " -> " ++ show (f p0)) (f p0)
-        g0 = trace ("bfgsInit (df p0): " ++ show p0 ++ " -> " ++ show (df p0)) (df p0)
+  where n = dim p0 ; f0 = f p0 ; g0 = df p0
 
 
 -- Main iteration routine: sets up initial BFGS state, then steps
@@ -110,9 +108,8 @@ bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 =
           else case bfgsStepWith opt f df b of
             Left err -> Left err
             Right (True, b') -> Right (p b', h b')
-            Right (False, b') -> trace (show $ (p b', fp b')) $ go (iters+1) b'
-        f0 = trace ("bfgsWith (f p0): " ++ show p0 ++ " -> " ++ show (f p0)) (f p0)
-        g0 = trace ("bfgsWith (df p0): " ++ show p0 ++ " -> " ++ show (df p0)) (df p0)
+            Right (False, b') -> trace ("bfgsWith (iter): " ++ show b') $ go (iters+1) b'
+        f0 = f p0 ; g0 = df p0
         b0 = BFGS p0 f0 g0 (-g0) (ident $ dim p0) (maxStep p0)
 
 
@@ -130,19 +127,20 @@ bfgsStepWith :: BFGSOpts -> Fn -> GradFn -> BFGS -> Either String (Bool, BFGS)
 bfgsStepWith (BFGSOpts ptol gtol _) f df (BFGS p fp g xi h stpmax) =
   case lineSearch f p fp g xi stpmax of
     Left err -> Left err
-    Right (pn, fpn) -> if hasnan gn
-                       then Left $ nanMsg (True, False)
-                       else Right (cvg, BFGS pn fpn gn xin hn stpmax)
-      where gn = trace ("bfgsStepWith (df pn): " ++ show pn ++ " -> " ++ show (df pn)) (df pn)
-            dp = pn - p ; dg = gn - g
-            hdg = h <> dg
+    Right (pn, fpn) ->
+      if hasnan gn
+      then Left $ nanMsg (True, False)
+      else if cvg
+           then Right (True, BFGS pn fpn gn xi h stpmax)
+           else Right (False, BFGS pn fpn gn xin hn stpmax)
+      where gn = df pn ; dp = pn - p ; dg = gn - g ; hdg = h <> dg
             dpdg = dp `dot` dg ; dghdg = dg `dot` hdg
             u = (1/dpdg) `scale` dp - (1/dghdg) `scale` hdg
             o2 v = v `outer` v
             hn = h + (1/dpdg) `scale` o2 dp - (1/dghdg) `scale` o2 hdg +
                  dghdg `scale` o2 u
             xin = -hn <> gn
-            cvg = maxabsratio xi p < ptol || maxabsratio' (fpn `max` 1) gn p < gtol
+            cvg = maxabsratio dp p < ptol || maxabsratio' (fpn `max` 1) gn p < gtol
 
 
 -- Generate error messages for NaN production in function and gradient
@@ -211,8 +209,7 @@ lineSearchWith (LineSearchOpts xtol alpha) func xold fold g pin stpmax =
                             Just val2 ->
                               go (lambound lam $ cubiclam fnew val2) $ Just (lam,fnew)
           where xnew = xold + lam `scale` p
-                fnew = trace ("lineSearchWith (func xnew): " ++ show xnew ++
-                              " -> " ++ show (func xnew)) (func xnew)
+                fnew = func xnew
 
                 -- Check for convergence or a "sufficiently large" step.
                 check :: Double -> Vector Double -> Double ->
