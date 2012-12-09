@@ -1,8 +1,10 @@
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
+
 -- Pure Haskell implementation of standard BFGS algorithm with cubic
 -- line search, with the BFGS step exposed to provide access to
 -- intermediate Hessian estimates.
 
-module Math.Probably.BFGS 
+module Math.Probably.BFGS
        ( BFGSOpts (..)
        , LineSearchOpts (..)
        , BFGS (..)
@@ -24,6 +26,22 @@ type Direction = Vector Double
 type Fn = Point -> Double
 type GradFn = Point -> Vector Double
 type Hessian = Matrix Double
+
+
+--------------------------------------------------------------------------------
+--
+--  NaN CHECKING
+--
+
+class Nanable a where
+  hasnan :: a -> Bool
+
+instance Nanable Double where
+  hasnan = isNaN
+
+instance (Nanable a, Container c a) => Nanable (c a) where
+  hasnan = not . null . (find hasnan)
+
 
 --------------------------------------------------------------------------------
 --
@@ -49,7 +67,7 @@ data BFGS = BFGS { p :: Point
                  , fp :: Double
                  , g :: Gradient
                  , xi :: Direction
-                 , h :: Matrix Double 
+                 , h :: Matrix Double
                  , stpmax :: Double } deriving Show
 
 
@@ -69,30 +87,38 @@ bfgsCollect f df b0 = map snd $ iterate step (False,b0)
 -}
 -- Utility function to set up initial BFGS state for bfgsCollect.
 --
-bfgsInit :: Fn -> GradFn -> Point -> BFGS
-bfgsInit f df p0 = BFGS p0 (f p0) g0 (-g0) (ident n) (maxStep p0)
+bfgsInit :: Fn -> GradFn -> Point -> Either String BFGS
+bfgsInit f df p0 = case (hasnan f0, hasnan g0) of
+  (False, False) -> Right $ BFGS p0 f0 g0 (-g0) (ident n) (maxStep p0)
+  errs -> Left $ nanMsg errs
   where n = dim p0
-        g0 = df p0
+        f0 = trace ("bfgsInit (f p0): " ++ show p0 ++ " -> " ++ show (f p0)) (f p0)
+        g0 = trace ("bfgsInit (df p0): " ++ show p0 ++ " -> " ++ show (df p0)) (df p0)
 
 
 -- Main iteration routine: sets up initial BFGS state, then steps
 -- until converged or maximum iterations exceeded.
 --
 bfgsWith :: BFGSOpts -> Fn -> GradFn -> Point -> Either String (Point, Hessian)
-bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 = go 0 b0
-  where go iters b = 
+bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 =
+  case (hasnan f0, hasnan g0) of
+    (False, False) -> go 0 b0
+    errs -> Left $ nanMsg errs
+  where go iters b =
           if iters > maxiters
           then Left "maximum iterations exceeded in bfgs"
           else case bfgsStepWith opt f df b of
-            (True, b') -> Right (p b', h b')
-            (False, b') -> trace (show $ (p b', fp b')) $ go (iters+1) b'
-        g0 = df p0
-        b0 = BFGS p0 (f p0) g0 (-g0) (ident $ dim p0) (maxStep p0)
+            Left err -> Left err
+            Right (True, b') -> Right (p b', h b')
+            Right (False, b') -> trace (show $ (p b', fp b')) $ go (iters+1) b'
+        f0 = trace ("bfgsWith (f p0): " ++ show p0 ++ " -> " ++ show (f p0)) (f p0)
+        g0 = trace ("bfgsWith (df p0): " ++ show p0 ++ " -> " ++ show (df p0)) (df p0)
+        b0 = BFGS p0 f0 g0 (-g0) (ident $ dim p0) (maxStep p0)
 
 
 -- Do a BFGS step with default parameters.
 --
-bfgsStep :: Fn -> GradFn -> BFGS -> (Bool, BFGS)
+bfgsStep :: Fn -> GradFn -> BFGS -> Either String (Bool, BFGS)
 bfgsStep = bfgsStepWith def
 
 
@@ -100,19 +126,33 @@ bfgsStep = bfgsStepWith def
 -- translation of the description in Section 10.7 of Numerical Recipes
 -- in C, 2nd ed.
 --
-bfgsStepWith :: BFGSOpts -> Fn -> GradFn -> BFGS -> (Bool, BFGS)
-bfgsStepWith (BFGSOpts ptol gtol _) f df (BFGS p fp g xi h stpmax) = 
-  (cvg, BFGS pn fpn gn xin hn stpmax)
-  where (pn, fpn) = lineSearch f p fp g xi stpmax
-        gn = df pn ; dp = pn - p ; dg = gn - g
-        hdg = h <> dg
-        dpdg = dp `dot` dg ; dghdg = dg `dot` hdg
-        u = (1/dpdg) `scale` dp - (1/dghdg) `scale` hdg
-        o2 v = v `outer` v
-        hn = h + (1/dpdg) `scale` o2 dp - (1/dghdg) `scale` o2 hdg + 
-             dghdg `scale` o2 u
-        xin = -hn <> gn
-        cvg = maxabsratio xi p < ptol || maxabsratio' (fpn `max` 1) gn p < gtol
+bfgsStepWith :: BFGSOpts -> Fn -> GradFn -> BFGS -> Either String (Bool, BFGS)
+bfgsStepWith (BFGSOpts ptol gtol _) f df (BFGS p fp g xi h stpmax) =
+  case lineSearch f p fp g xi stpmax of
+    Left err -> Left err
+    Right (pn, fpn) -> if hasnan gn
+                       then Left $ nanMsg (True, False)
+                       else Right (cvg, BFGS pn fpn gn xin hn stpmax)
+      where gn = trace ("bfgsStepWith (df pn): " ++ show pn ++ " -> " ++ show (df pn)) (df pn)
+            dp = pn - p ; dg = gn - g
+            hdg = h <> dg
+            dpdg = dp `dot` dg ; dghdg = dg `dot` hdg
+            u = (1/dpdg) `scale` dp - (1/dghdg) `scale` hdg
+            o2 v = v `outer` v
+            hn = h + (1/dpdg) `scale` o2 dp - (1/dghdg) `scale` o2 hdg +
+                 dghdg `scale` o2 u
+            xin = -hn <> gn
+            cvg = maxabsratio xi p < ptol || maxabsratio' (fpn `max` 1) gn p < gtol
+
+
+-- Generate error messages for NaN production in function and gradient
+-- calculations.
+--
+nanMsg :: (Bool, Bool) -> String
+nanMsg (f, g) = case (f, g) of
+  (True, False) -> "function application returned NaN"
+  (False, True) -> "gradient calculation returned NaN"
+  (True, True) -> "both function application and gradient returned NaN"
 
 
 --------------------------------------------------------------------------------
@@ -139,8 +179,8 @@ maxStep p0 = (100 * (norm p0 `max` n))
 
 -- Line search with default parameters.
 --
-lineSearch :: Fn -> Point -> Double -> Gradient -> Direction -> 
-              Double -> (Point, Double)
+lineSearch :: Fn -> Point -> Double -> Gradient -> Direction ->
+              Double -> Either String (Point, Double)
 lineSearch = lineSearchWith def
 
 
@@ -149,51 +189,54 @@ lineSearch = lineSearchWith def
 -- quadratic and cubic approximations.  It works, but it could be
 -- prettier.
 --
-lineSearchWith :: LineSearchOpts -> Fn -> Point -> Double -> Gradient -> 
-                  Direction -> Double -> (Point, Double)
-lineSearchWith (LineSearchOpts xtol alpha) func xold fold g pin stpmax = 
+lineSearchWith :: LineSearchOpts -> Fn -> Point -> Double -> Gradient ->
+                  Direction -> Double -> Either String (Point, Double)
+lineSearchWith (LineSearchOpts xtol alpha) func xold fold g pin stpmax =
   go 1.0 Nothing
   where p = if pinnorm > stpmax then (stpmax/pinnorm) `scale` pin else pin
         pinnorm = norm pin
         slope = g `dot` p
         lammin = xtol / (maxabsratio p xold)
-        
-        go :: Double -> Maybe (Double,Double) -> (Point,Double)
-        go lam pass = case check lam xnew fnew of
-          Just xandf -> xandf
-          Nothing -> 
-            case pass of
-              -- First time.
-              Nothing -> go (lambound lam $ quadlam fnew) $ Just (lam,fnew)
-              -- Subsequent times.
-              Just val2 -> 
-                go (lambound lam $ cubiclam fnew val2) $ Just (lam,fnew)
+
+        go :: Double -> Maybe (Double,Double) -> Either String (Point,Double)
+        go lam pass = if hasnan fnew
+                      then Left $ nanMsg (True, False)
+                      else case check lam xnew fnew of
+                        Just xandf -> Right xandf
+                        Nothing ->
+                          case pass of
+                            -- First time.
+                            Nothing -> go (lambound lam $ quadlam fnew) $ Just (lam,fnew)
+                            -- Subsequent times.
+                            Just val2 ->
+                              go (lambound lam $ cubiclam fnew val2) $ Just (lam,fnew)
           where xnew = xold + lam `scale` p
-                fnew = func xnew
-                  
+                fnew = trace ("lineSearchWith (func xnew): " ++ show xnew ++
+                              " -> " ++ show (func xnew)) (func xnew)
+
                 -- Check for convergence or a "sufficiently large" step.
-                check :: Double -> Vector Double -> Double -> 
+                check :: Double -> Vector Double -> Double ->
                          Maybe (Vector Double,Double)
                 check lam x f =
                   if lam < lammin then Just (xold,fold)
                   else if f <= fold + alpha * lam * slope then Just (x,f)
                        else Nothing
-                  
+
                 -- Keep step length within bounds.
                 lambound lam lam' = max (0.1 * lam) (min lam' (0.5 * lam))
-                
+
                 -- Quadratic and cubic approximations to better step
                 -- value.
                 quadlam fnew = -slope / (2 * (fnew - fold - slope))
                 cubiclam fnew (lam2,f2) =
-                  if a == 0 
+                  if a == 0
                   then (-slope / (2 * b))
                   else if disc < 0 then error "Roundoff problem in lineSearch"
                        else (-b + sqrt disc) / (3 * a)
                     where rhs1 = fnew - fold - lam * slope
                           rhs2 = f2 - fold - lam2 * slope
                           a = (rhs1 / lam^2 - rhs2 / lam2^2) / (lam - lam2)
-                          b = (-lam2 * rhs1 / lam^2 + lam * rhs2 / lam2^2) / 
+                          b = (-lam2 * rhs1 / lam^2 + lam * rhs2 / lam2^2) /
                               (lam - lam2)
                           disc = b^2 - 3 * a * slope
 
@@ -260,9 +303,23 @@ tstgradnr p = fromList [20*(y^2*x3m-x^2*x3p)*(-y^2-6*x-3*x^2)+
                         2*x2p/(1+x2p^2)-2*x2p^3/(1+x2p^2)^2,
                         40*(y^2*x3m-x^2*x3p)*y*x3m]
   where [x,y] = toList p
-	x3m = 3 - x
-	x3p = 3 + x
-	x2p = 2 + x
+        x3m = 3 - x
+        x3p = 3 + x
+        x2p = 2 + x
 
 nrp0 :: Point
 nrp0 = fromList [0.1,4.2]
+
+
+-- Test function to check NaN handling.
+--
+-- *BFGS> bfgs nantstf nantstgrad (fromList [-10,-10])
+-- Left "function application returned NaN"
+
+nantstf :: Fn
+nantstf p = log x + (x-3)^2 + (y-4)^2
+  where [x,y] = toList p
+
+nantstgrad :: GradFn
+nantstgrad p = fromList [1/x+2*(x-3),2*(y-4)]
+  where [x,y] = toList p
