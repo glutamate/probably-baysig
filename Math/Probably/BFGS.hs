@@ -14,6 +14,7 @@ module Math.Probably.BFGS
 where
 
 import Numeric.LinearAlgebra
+import Numeric.LinearAlgebra.Algorithms
 import Numeric.LinearAlgebra.Util
 import Data.Default
 
@@ -59,6 +60,10 @@ instance Default BFGSOpts where
   def = BFGSOpts 1.0E-7 1.0E-7 200
 
 
+epsilon :: Double
+epsilon = 3.0E-8
+
+
 -- BFGS solver data to carry between steps: current point, function
 -- value at point, gradient at point, current direction, current
 -- Hessian estimate, maximum line search step.
@@ -90,7 +95,7 @@ bfgsCollect f df b0 = map snd $ iterate step (False,b0)
 bfgsInit :: Fn -> GradFn -> Point -> Either String BFGS
 bfgsInit f df p0 = case (hasnan f0, hasnan g0) of
   (False, False) -> Right $ BFGS p0 f0 g0 (-g0) (ident n) (maxStep p0)
-  errs -> Left $ nanMsg errs
+  errs -> Left $ nanMsg p0 (Just f0) (Just g0)
   where n = dim p0 ; f0 = f p0 ; g0 = df p0
 
 
@@ -101,14 +106,14 @@ bfgsWith :: BFGSOpts -> Fn -> GradFn -> Point -> Either String (Point, Hessian)
 bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 =
   case (hasnan f0, hasnan g0) of
     (False, False) -> go 0 b0
-    errs -> Left $ nanMsg errs
+    errs -> Left $ nanMsg p0 (Just f0) (Just g0)
   where go iters b =
           if iters > maxiters
           then Left "maximum iterations exceeded in bfgs"
           else case bfgsStepWith opt f df b of
             Left err -> Left err
             Right (True, b') -> Right (p b', h b')
-            Right (False, b') -> trace ("bfgsWith (iter): " ++ show b') $ go (iters+1) b'
+            Right (False, b') -> go (iters+1) b'
         f0 = f p0 ; g0 = df p0
         b0 = BFGS p0 f0 g0 (-g0) (ident $ dim p0) (maxStep p0)
 
@@ -129,16 +134,14 @@ bfgsStepWith (BFGSOpts ptol gtol _) f df (BFGS p fp g xi h stpmax) =
     Left err -> Left err
     Right (pn, fpn) ->
       if hasnan gn
-      then Left $ nanMsg (True, False)
+      then Left $ nanMsg pn Nothing (Just gn)
       else if cvg
            then Right (True, BFGS pn fpn gn xi h stpmax)
            else Right (False, BFGS pn fpn gn xin hn stpmax)
       where gn = df pn ; dp = pn - p ; dg = gn - g ; hdg = h <> dg
             dpdg = dp `dot` dg ; dghdg = dg `dot` hdg
-            u = (1/dpdg) `scale` dp - (1/dghdg) `scale` hdg
-            o2 v = v `outer` v
-            hn = h + (1/dpdg) `scale` o2 dp - (1/dghdg) `scale` o2 hdg +
-                 dghdg `scale` o2 u
+            hn = h + ((dpdg + dghdg) / dpdg^2) `scale` (dp `outer` dp) -
+                 (1/dpdg) `scale` (h <> (dg `outer` dp) + (dp `outer` dg) <> h)
             xin = -hn <> gn
             cvg = maxabsratio dp p < ptol || maxabsratio' (fpn `max` 1) gn p < gtol
 
@@ -146,11 +149,10 @@ bfgsStepWith (BFGSOpts ptol gtol _) f df (BFGS p fp g xi h stpmax) =
 -- Generate error messages for NaN production in function and gradient
 -- calculations.
 --
-nanMsg :: (Bool, Bool) -> String
-nanMsg (f, g) = case (f, g) of
-  (True, False) -> "function application returned NaN"
-  (False, True) -> "gradient calculation returned NaN"
-  (True, True) -> "both function application and gradient returned NaN"
+nanMsg :: Point -> Maybe Double -> Maybe Gradient -> String
+nanMsg p fval grad = "NaNs produced: p = " ++ show p ++
+                     maybe "" (("  fval = " ++) . show) fval ++
+                     maybe "" (("  grad = " ++) . show) grad
 
 
 --------------------------------------------------------------------------------
@@ -198,38 +200,40 @@ lineSearchWith (LineSearchOpts xtol alpha) func xold fold g pin stpmax =
 
         go :: Double -> Maybe (Double,Double) -> Either String (Point,Double)
         go lam pass = if hasnan fnew
-                      then Left $ nanMsg (True, False)
-                      else case check lam xnew fnew of
+                      then Left $ nanMsg xnew (Just fnew) Nothing
+                      else case check xnew fnew of
                         Just xandf -> Right xandf
                         Nothing ->
                           case pass of
                             -- First time.
-                            Nothing -> go (lambound lam $ quadlam fnew) $ Just (lam,fnew)
+                            Nothing -> go (lambound $ quadlam fnew) $ Just (lam,fnew)
                             -- Subsequent times.
-                            Just val2 ->
-                              go (lambound lam $ cubiclam fnew val2) $ Just (lam,fnew)
+                            Just val2 -> case cubiclam fnew val2 of
+                              Right newlam -> go (lambound newlam) $ Just (lam,fnew)
+                              Left err -> Left err
           where xnew = xold + lam `scale` p
                 fnew = func xnew
 
                 -- Check for convergence or a "sufficiently large" step.
-                check :: Double -> Vector Double -> Double ->
-                         Maybe (Vector Double,Double)
-                check lam x f =
+                check :: Vector Double -> Double -> Maybe (Vector Double,Double)
+                check x f =
                   if lam < lammin then Just (xold,fold)
-                  else if f <= fold + alpha * lam * slope then Just (x,f)
+                  else if f <= fold + alpha * lam * slope
+                       then Just (x,f)
                        else Nothing
 
                 -- Keep step length within bounds.
-                lambound lam lam' = max (0.1 * lam) (min lam' (0.5 * lam))
+                lambound lam' = max (0.1 * lam) (min lam' (0.5 * lam))
 
                 -- Quadratic and cubic approximations to better step
                 -- value.
                 quadlam fnew = -slope / (2 * (fnew - fold - slope))
                 cubiclam fnew (lam2,f2) =
                   if a == 0
-                  then (-slope / (2 * b))
-                  else if disc < 0 then error "Roundoff problem in lineSearch"
-                       else (-b + sqrt disc) / (3 * a)
+                  then Right (-slope / (2 * b))
+                  else if disc < 0
+                       then Left "Roundoff problem in lineSearch"
+                       else Right $ (-b + sqrt disc) / (3 * a)
                     where rhs1 = fnew - fold - lam * slope
                           rhs2 = f2 - fold - lam2 * slope
                           a = (rhs1 / lam^2 - rhs2 / lam2^2) / (lam - lam2)
