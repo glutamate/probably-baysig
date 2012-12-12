@@ -124,6 +124,8 @@ runMalaMPaccept cov pdf nsam init = go init [] where
          io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
          io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
          return (mpar, xs)
+    | mpAccept mpar < 0.5 && mpCount mpar > 50 = 
+         return (mpar, [])
     | otherwise = do
          !mpar1 <- sample $ mala1 cov pdf mpar
          io $ putStr ((show (round $ mpAccept mpar)) ++".") >> hFlush stdout
@@ -180,8 +182,9 @@ runMalaRioCodaESS cov pdf want_ess xi = do
                else do io$ putStrLn "converged!"
                        io $ print mp2
                        converged mp2 (xs2++xs)
-
-    go mp1 (round $ mpCount mp1) xs1
+    case xs1 of
+      [] -> return []
+      _ -> go mp1 (round $ mpCount mp1) xs1
 
 
 
