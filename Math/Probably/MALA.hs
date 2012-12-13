@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, BangPatterns, ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes, BangPatterns, ScopedTypeVariables, FlexibleInstances #-}
 
 module Math.Probably.MALA where
 
@@ -22,6 +22,23 @@ import qualified Control.Monad.State.Strict as S
 
 import Debug.Trace
 import Data.IORef
+import Control.Spoon
+
+class IsNaN a where
+  isItNaN :: a -> Bool
+
+instance IsNaN Double where
+  isItNaN = nanOrInf
+
+instance IsNaN (Vector Double) where
+  isItNaN = any nanOrInf . toList
+
+instance IsNaN (Matrix Double) where
+  isItNaN = or . (map (any nanOrInf . toList)) . toRows
+
+checkNaN :: IsNaN a => String -> a -> String
+checkNaN s x | isItNaN x = " "++s++" "
+             | otherwise = ""
 
 data MalaPar = MalaPar { mpXi :: !(Vector Double),
                          mpPi :: !Double,
@@ -29,7 +46,8 @@ data MalaPar = MalaPar { mpXi :: !(Vector Double),
                          mpSigma :: !Double,
                          mpCount :: !Double,
                          mpAccept :: !Double,
-                         mpFreezeSigma :: !Bool }
+                         mpFreezeSigma :: !Bool } --,
+--                         mpLastRatio :: !Double }
   deriving Show
 
 data Pair a b = Pair !a !b
@@ -41,22 +59,25 @@ unPair (Pair x y) = (x,y)
 unList (Cons x xs) = x: unList xs
 unList Nil =[]
 
-mala1 :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
+mala1 :: Matrix Double -> (Double, Matrix Double,Matrix Double) -> (Vector Double -> (Double,Vector Double)) 
          -> MalaPar
          -> Sampler MalaPar
-mala1 cov postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
+mala1 cov (lndet, covInv, covChol) postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
                 
   let xstarMean = xi + scale (sigma/2) (cov <> gradienti)
       xstarCov = scale sigma  cov
-  xstar <- multiNormal xstarMean xstarCov
+  xstar <- multiNormalByChol xstarMean (scale (sqrt sigma) covChol)
   u <- unitSample
   let (!pstar, !gradientStar) = postgrad xstar
   let !revJumpMean = xstar + scale (sigma/2) (cov <> gradientStar)
-  
-  let ratio = pstar  + PDF.multiNormal revJumpMean xstarCov xi
-              - pi   - PDF.multiNormal xstarMean xstarCov xstar
-  let tr' = max 1 tr
-  if u < exp ratio
+      scaleInvCov = scale (recip sigma) covInv
+      ptop =  PDF.multiNormalByInv lndet  scaleInvCov revJumpMean xi
+      pbot = PDF.multiNormalByInv lndet  scaleInvCov xstarMean xstar
+      ratio = exp $   pstar + ptop - pi - pbot
+      tr' = max 1 tr
+      sigmaNext = case () of
+         _ | freeze -> sigma                    
+  if trace (show (pi, ratio, sigma)) $ u < ratio
      then return $ MalaPar xstar pstar (gradientStar) 
                            (if freeze then sigma else (min 1.4 $ 1+kmala/tr')*sigma) 
                            (tr+1) (tracc+1) freeze
@@ -67,7 +88,7 @@ mala1 cov postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
 --                           sigma (tr+1) tracc
 
   
-runMala :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
+{-runMala :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
          ->  Int -> Vector Double -> RIO [(Double,Vector Double)]
 runMala cov postgrad nsam init = go nsam mp1 [] where
   go 0 mpar xs = do io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
@@ -76,20 +97,20 @@ runMala cov postgrad nsam init = go nsam mp1 [] where
   go n y xs = do y1 <- sample $ mala1 cov postgrad y
                  go (n-1) y1 $ (mpPi y1, mpXi y1):xs 
   (pi, gradi) = postgrad init
-  mp1 =  MalaPar init pi (gradi)  1 0 0 False
+  mp1 =  MalaPar init pi (gradi)  1 0 0 False -}
 
-runMalaMP :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
+runMalaMP :: Matrix Double -> (Double, Matrix Double,Matrix Double) ->(Vector Double -> (Double,Vector Double)) 
          ->  Int -> MalaPar -> [(Double,Vector Double)] -> RIO (MalaPar, [(Double,Vector Double)])
-runMalaMP cov pdf nsam init xs0 = go nsam init xs0 where
+runMalaMP cov covInvChol pdf nsam init xs0 = go nsam init xs0 where
   go 0 mpar xs = do io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
                     io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
                     return (mpar, xs)
-  go n y xs = do y1 <- sample $ mala1 cov pdf y
+  go n y xs = do y1 <- sample $ mala1 cov covInvChol pdf y
                  io $ putStr "." >> hFlush stdout
                  go (n-1) y1 $ (mpPi y1, mpXi y1):xs 
 
 
-runMalaMPaccept' :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
+{-runMalaMPaccept' :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
          ->  Int -> MalaPar -> RIO (MalaPar, [(Double,Vector Double)])
 runMalaMPaccept'  cov pdf nsam init  = do
   stseed <- S.get
@@ -114,26 +135,26 @@ runMalaMPaccept'  cov pdf nsam init  = do
   let mp = fst $ snd res
   return $ (mp, map unPair $ unList $ snd $ snd res)
  
---  pi = pdf $ toList $ mpXi init
+--  pi = pdf $ toList $ mpXi init -}
 
-runMalaMPaccept :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
+runMalaMPaccept :: Matrix Double -> (Double, Matrix Double,Matrix Double) -> (Vector Double -> (Double,Vector Double)) 
          -> Int -> MalaPar ->  RIO (MalaPar, [(Double,Vector Double)])
-runMalaMPaccept cov pdf nsam init = go init [] where
+runMalaMPaccept cov covInvChol pdf nsam init = go init [] where
   go !mpar !xs
     | (round $ mpAccept mpar) >= nsam = do
          io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
          io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
          return (mpar, xs)
-    | mpAccept mpar < 0.5 && mpCount mpar > 50 = 
+    | mpAccept mpar < 0.5 && mpCount mpar > 20 = 
          return (mpar, [])
     | otherwise = do
-         !mpar1 <- sample $ mala1 cov pdf mpar
+         !mpar1 <- sample $ mala1 cov covInvChol pdf mpar
          io $ putStr ((show (round $ mpAccept mpar)) ++".") >> hFlush stdout
          go mpar1 $ (mpPi mpar1, mpXi mpar1):xs
  
 kmala = 5
 
-runMalaRioESS ::  Matrix Double -> (Vector Double -> (Double,Vector Double)) 
+{-runMalaRioESS ::  Matrix Double -> (Vector Double -> (Double,Vector Double)) 
                   ->  Int -> Vector Double -> RIO [Vector Double]
 runMalaRioESS cov pdf want_ess xi = do
     let (p0,grad0) = pdf xi
@@ -149,7 +170,7 @@ runMalaRioESS cov pdf want_ess xi = do
                    samples_per_es = realToFrac nsam0/have_ess
                    to_do = round $ samples_per_es * need_ess 
                (mp2, xs2) <- runMalaMP cov pdf to_do mp1 xs1
-               return  $ map snd  xs2 
+               return  $ map snd  xs2 -}
 
 runMalaRioCodaESS ::  Matrix Double -> (Vector Double -> (Double,Vector Double)) 
                   ->  Int -> Vector Double -> RIO [Vector Double]
@@ -158,33 +179,45 @@ runMalaRioCodaESS cov pdf want_ess xi = do
     let sigma0 = 1.5 / (realToFrac $ dim xi) -- determined empirically
     let mp0 = MalaPar xi p0 grad0 sigma0 0 0 False
         nsam0 = want_ess*1
-    io $ putStrLn $ "initial sigma = "++show (mpSigma mp0)
-    (mp1, xs1) <- runMalaMPaccept cov pdf nsam0 mp0 
-    io $ print mp1
-    let converged mp xs = do
-         let have_ess = min (mpAccept mp1) $ calcESSprim $ map snd xs1
+    let converged mp covInvChol xs = do
+         let have_ess = min (mpAccept mp) $ calcESSprim $ map snd xs
          if have_ess > realToFrac want_ess
-            then return $ map snd xs1
+            then return $ map snd xs
             else do let need_ess =  max 1 $ realToFrac want_ess - have_ess
                         samples_per_es = realToFrac nsam0/have_ess
                         to_do = round $ samples_per_es * need_ess 
                     io $ putStrLn $ "running converged for "++show to_do
-                    (mp2, xs2) <- runMalaMP cov pdf to_do (mp {mpFreezeSigma = True}) xs1
+                    (mp2, xs2) <- runMalaMP cov covInvChol pdf to_do (mp {mpFreezeSigma = True}) xs
                     io $ putStrLn $ "All done with: "
                     io $ print mp2
                     return $ map snd xs2 
-    let go mp n xs = do
-            (mp2, xs2) <- runMalaMP cov pdf n mp []
-            if  mannWhitneyUtest TwoTailed 0.10 (U.fromList $ map fst xs2)
-                                            (U.fromList $ map fst xs) /= Just NotSignificant
-               then do io$ putStrLn "not converged"
-                       go mp2 (round $ realToFrac n*1.2) xs2
+    let go mp covInvChol n xs = do
+            (mp2, xs2) <- runMalaMP cov covInvChol pdf n mp []
+            let testres = mannWhitneyUtest TwoTailed 0.05 (U.fromList $ map fst xs2)
+                                            (U.fromList $ map fst xs) 
+              
+            if testres/= Just NotSignificant
+               then do io$ putStrLn $ "not converged: "++show testres
+                       go mp2 covInvChol (round $ realToFrac n*2) xs2
                else do io$ putStrLn "converged!"
                        io $ print mp2
-                       converged mp2 (xs2++xs)
-    case xs1 of
-      [] -> return []
-      _ -> go mp1 (round $ mpCount mp1) xs1
+                       converged mp2 covInvChol (xs2++xs)
+    let go_rest covInvChol = do 
+          io $ putStrLn $ "initial sigma = "++show (mpSigma mp0)
+          (mp1, xs1) <- runMalaMPaccept cov covInvChol pdf nsam0 mp0 
+          io $ print mp1
+          case xs1 of
+            [] -> return []
+            _ -> go mp1 covInvChol (round $ mpCount mp1) xs1
+
+    case (spoon (invlndet cov), mbCholSH cov) of
+       (Just (covInv, (lndt,_)), Just covChol) -> go_rest (lndt, covInv, covChol)
+       _ -> let cov' = PDF.posdefify cov in 
+            case (spoon (invlndet cov'), mbCholSH cov') of
+              (Just (covInv, (lndt,_)), Just covChol) -> go_rest (lndt, covInv, covChol)
+              _ ->  do io $ putStrLn "non-invertible covariance matrix"
+                       return []
+
 
 
 

@@ -99,9 +99,7 @@ instance NFData (Matrix Double)
 multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)
 multiNormal mu sigma = 
   let k = realToFrac $ dim mu
-      invSigma = case spoon $ inv sigma of
-                   Just i -> i
-                   Nothing -> inv $ posdefify sigma
+      invSigma =  inv sigma 
       mat1 = head . head . toLists
   in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
@@ -111,6 +109,12 @@ multiNormalByInv lndet invSigma mu =
   let k = realToFrac $ dim mu
       mat1 = head . head . toLists
   in \x-> log 1 - (k/2)*log (2*pi) - lndet/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
+
+multiNormalByInvFixCov ::  Matrix Double -> Vector Double -> PDF (Vector Double)
+multiNormalByInvFixCov invSigma mu = 
+  let k = realToFrac $ dim mu
+      mat1 = head . head . toLists
+  in \x-> (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
 
 

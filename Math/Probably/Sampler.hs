@@ -112,7 +112,18 @@ eval s = do
   return $ realToFrac (length (filter id bs)) / 1000
  
 
+
+mu :: Vector Double
+sigma :: Matrix Double
+
+mystery = -1
+mu = fromList [0,0,0]
+sigma =  (3><3) [ 1,    1,       0,
+                  1,    1,     mystery,
+                  0,  mystery,   1]
                     
+
+samIt = sampleNIO 2 $ multiNormal mu sigma
 
 -- | The joint distribution of two independent distributions
 joint :: Sampler a -> Sampler b -> Sampler (a,b)
@@ -191,9 +202,7 @@ gaussManyUnitD n | odd n = liftM2 (:) (gauss 0 1) (gaussManyUnit (n-1))
 -- | Multivariate normal distribution
 multiNormal :: Vector Double -> Matrix Double -> Sampler (Vector Double)
 multiNormal mu sigma =
-  let c =  case spoon $ chol sigma of
-                   Just i -> i
-                   Nothing -> chol $ PDF.posdefify sigma
+  let c =   cholSH sigma
       a = trans c
       k = dim mu
   in do z <- fromList `fmap` gaussManyUnitD k
