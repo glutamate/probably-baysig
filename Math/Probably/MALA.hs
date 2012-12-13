@@ -77,7 +77,7 @@ mala1 cov (lndet, covInv, covChol) postgrad (MalaPar xi pi gradienti sigma tr tr
       tr' = max 1 tr
       sigmaNext = case () of
          _ | freeze -> sigma                    
-  if trace (show (pi, ratio, sigma)) $ u < ratio
+  if u < ratio
      then return $ MalaPar xstar pstar (gradientStar) 
                            (if freeze then sigma else (min 1.4 $ 1+kmala/tr')*sigma) 
                            (tr+1) (tracc+1) freeze
@@ -198,7 +198,7 @@ runMalaRioCodaESS cov pdf want_ess xi = do
               
             if testres/= Just NotSignificant
                then do io$ putStrLn $ "not converged: "++show testres
-                       go mp2 covInvChol (round $ realToFrac n*2) xs2
+                       go mp2 covInvChol (round $ realToFrac n*1.5) xs2
                else do io$ putStrLn "converged!"
                        io $ print mp2
                        converged mp2 covInvChol (xs2++xs)
