@@ -48,7 +48,8 @@ Library
 --                   Math.Probably.JAGS
                         Math.Probably.RandIO,
                         Math.Probably.BFGS,
-                        Math.Probably.MALA
+                        Math.Probably.MALA,
+                        Math.Probably.HamMC
 
                         
    Build-depends:       base, mersenne-random-pure64, ad,
