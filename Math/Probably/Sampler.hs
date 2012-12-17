@@ -83,6 +83,7 @@ runSampler :: Seed -> Sampler a -> [a]
 runSampler pmt s@(Sam sf) 
    = let (x, pmt') = sf pmt
      in x : runSampler pmt' s
+runSampler _ (Samples xs) = xs
 
 -- | Get a seed
 getSeedIO :: IO Seed

@@ -21,6 +21,7 @@ import Statistics.Autocorrelation
 
 import Text.Printf
 import Data.List
+import Control.Monad.Par
 
 import Debug.Trace
 
@@ -283,9 +284,13 @@ calcESSprim ::  [L.Vector Double] -> Double
 calcESSprim mcmcOut = 
   let ndims = L.dim $ head mcmcOut
       len = realToFrac (length mcmcOut) 
-      acfs = map (\i->  V.sum $ V.takeWhile (>0.1) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
+      acfs = mapP (\i->  V.sum $ V.takeWhile (>0.1) $ fst3 $ autocorrelation $ V.fromList $ map (L.@>i) mcmcOut) [0..ndims-1]
       ess = foldl1' min $ flip map acfs $ \acfsum-> (len/(1+2*acfsum)) -- realToFrac samples/(1+2*acfsum)
   in ess
+
+mapP :: NFData b => (a-> b) -> [a] -> [b]
+mapP f xs = runPar $ 
+  forM xs (spawn . return . f) >>= mapM get
 
 runAdaMetRIOtoFile :: Int -> Int -> String -> Bool -> AMPar -> PDF.PDF (L.Vector Double) -> RIO ()
 runAdaMetRIOtoFile n thinn fileNm freeze ampar pdf = do

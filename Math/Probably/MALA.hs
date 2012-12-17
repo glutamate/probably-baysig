@@ -181,6 +181,7 @@ runMalaRioCodaESS cov pdf want_ess xi = do
         nsam0 = want_ess*1
     let converged mp covInvChol xs = do
          let have_ess = min (mpAccept mp) $ calcESSprim $ map snd xs
+         io $ putStrLn $ "ESS=" ++show have_ess
          if have_ess > realToFrac want_ess
             then return $ map snd xs
             else do let need_ess =  max 1 $ realToFrac want_ess - have_ess
@@ -188,8 +189,7 @@ runMalaRioCodaESS cov pdf want_ess xi = do
                         to_do = round $ samples_per_es * need_ess 
                     io $ putStrLn $ "running converged for "++show to_do
                     (mp2, xs2) <- runMalaMP cov covInvChol pdf to_do (mp {mpFreezeSigma = True}) xs
-                    io $ putStrLn $ "All done with: "
-                    io $ print mp2
+                    io $ putStrLn $ "All done"
                     return $ map snd xs2 
     let go mp covInvChol n xs = do
             (mp2, xs2) <- runMalaMP cov covInvChol pdf n mp []
@@ -197,15 +197,13 @@ runMalaRioCodaESS cov pdf want_ess xi = do
                                             (U.fromList $ map fst xs) 
               
             if testres/= Just NotSignificant
-               then do io$ putStrLn $ "not converged: "++show testres
-                       go mp2 covInvChol (round $ realToFrac n*1.5) xs2
+               then do io$ putStrLn $ "not converged: "++show testres++" at "++show (mpPi mp2)
+                       go mp2 covInvChol (round $ realToFrac n*2) xs2
                else do io$ putStrLn "converged!"
-                       io $ print mp2
                        converged mp2 covInvChol (xs2++xs)
     let go_rest covInvChol = do 
           io $ putStrLn $ "initial sigma = "++show (mpSigma mp0)
           (mp1, xs1) <- runMalaMPaccept cov covInvChol pdf nsam0 mp0 
-          io $ print mp1
           case xs1 of
             [] -> return []
             _ -> go mp1 covInvChol (round $ mpCount mp1) xs1

@@ -53,14 +53,15 @@ Library
                         
    Build-depends:       base, mersenne-random-pure64, ad,
                         binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, 
-                        statistics, vector, data-default
+                        statistics, vector, data-default, monad-par
 
    ghc-prof-options:    -auto-all
 
 Executable testMCMC
    Main-Is:           testMCMC.hs
    Build-depends:       base, mersenne-random-pure64, gnewplot,
-                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, statistics, vector,ad
+                        binary, hmatrix>=0.11.0.0, mtl, spoon, 
+                        deepseq, statistics, vector,ad, monad-par
    other-modules:       Math.Probably.Sampler,
                         Math.Probably.FoldingStats,
                         Math.Probably.Student,
