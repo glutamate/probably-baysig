@@ -43,8 +43,9 @@ hmc1 postGrad (HMCPar current_q current_U l eps count accept) = do
    
    let step :: Int -> Vector Double -> Vector Double -> (Vector Double, Vector Double)
        step n p q  -- note that my l is Radford Neal's L+1
-        | n == 0 = (negate $ p - scale (eps/2) (grad_u q),
-                    q + scale eps p)
+        | n == 0 = let qfinal = q + scale eps p in -- only q not p update in last loop
+                   (negate $ p - scale (eps/2) (grad_u qfinal), -- after Neal's loop
+                    qfinal)
         | otherwise =
             let q1 = q + scale eps p
                 p1 = p - scale eps (grad_u q)
@@ -55,10 +56,13 @@ hmc1 postGrad (HMCPar current_q current_U l eps count accept) = do
        propose_U = u propose_q
        propose_K =  (propose_p `dot` propose_p) / 2
        ratio = exp $ current_U - propose_U + current_K - propose_K
-   u <- unitSample
+   u <- unitSample -- 0 to 1
    return $ if u < ratio
                then HMCPar propose_q propose_U l eps (count+1) (accept+1)
                else HMCPar current_q current_U l eps (count+1) (accept)
 
-sumVec :: Vector Double -> Double
-sumVec = foldVector (+) 0
+runHMC postgrad nsam hmc0 = go nsam hmc0 [] where
+  go 0 hmcp xs = return (hmcp, xs)
+  go n hmcp xs = do hmc1 <- sample $ hmc1 postgrad hmcp
+                    io $ putStr "." >> hFlush stdout
+                    go (n-1) hmc1 $ hpXi hmc1 : xs
