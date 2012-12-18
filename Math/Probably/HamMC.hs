@@ -31,14 +31,15 @@ data HMCPar = HMCPar { hpXi :: !(Vector Double),
                        hpEpsilon :: !Double,
                        hpCount :: !Int,
                        hpAccept :: !Int }
+    deriving Show
 
 hmc1 :: (Vector Double -> (Double,Vector Double)) 
          -> HMCPar
          -> Sampler HMCPar
 hmc1 postGrad (HMCPar current_q current_U l eps count accept) = do
    let dims = dim current_q
-       grad_u = snd . postGrad
-       u = fst . postGrad
+       grad_u = negate . snd . postGrad
+       u = negate . fst . postGrad
    current_p <- fmap fromList $ gaussManyUnitD dims
    
    let step :: Int -> Vector Double -> Vector Double -> (Vector Double, Vector Double)
@@ -62,7 +63,8 @@ hmc1 postGrad (HMCPar current_q current_U l eps count accept) = do
                else HMCPar current_q current_U l eps (count+1) (accept)
 
 runHMC postgrad nsam hmc0 = go nsam hmc0 [] where
-  go 0 hmcp xs = return (hmcp, xs)
+  go 0 hmcp xs = do io $ putStrLn $ "done with "++show hmcp
+                    return (hmcp, xs)
   go n hmcp xs = do hmc1 <- sample $ hmc1 postgrad hmcp
                     io $ putStr "." >> hFlush stdout
                     go (n-1) hmc1 $ hpXi hmc1 : xs
