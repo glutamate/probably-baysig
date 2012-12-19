@@ -59,10 +59,10 @@ unPair (Pair x y) = (x,y)
 unList (Cons x xs) = x: unList xs
 unList Nil =[]
 
-mala1 :: Matrix Double -> (Double, Matrix Double,Matrix Double) -> (Vector Double -> (Double,Vector Double)) 
+mala1 :: Matrix Double -> (Matrix Double,Matrix Double) -> (Vector Double -> (Double,Vector Double)) 
          -> MalaPar
          -> Sampler MalaPar
-mala1 cov (lndet, covInv, covChol) postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
+mala1 cov (covInv, covChol) postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
                 
   let xstarMean = xi + scale (sigma/2) (cov <> gradienti)
       xstarCov = scale sigma  cov
@@ -71,8 +71,8 @@ mala1 cov (lndet, covInv, covChol) postgrad (MalaPar xi pi gradienti sigma tr tr
   let (!pstar, !gradientStar) = postgrad xstar
   let !revJumpMean = xstar + scale (sigma/2) (cov <> gradientStar)
       scaleInvCov = scale (recip sigma) covInv
-      ptop =  PDF.multiNormalByInv lndet  scaleInvCov revJumpMean xi
-      pbot = PDF.multiNormalByInv lndet  scaleInvCov xstarMean xstar
+      ptop =  PDF.multiNormalByInvFixCov   scaleInvCov revJumpMean xi
+      pbot = PDF.multiNormalByInvFixCov scaleInvCov xstarMean xstar
       ratio = exp $   pstar + ptop - pi - pbot
       tr' = max 1 tr
       sigmaNext = case () of
@@ -99,14 +99,15 @@ runMala cov postgrad nsam init = go nsam mp1 [] where
   (pi, gradi) = postgrad init
   mp1 =  MalaPar init pi (gradi)  1 0 0 False -}
 
-runMalaMP :: Matrix Double -> (Double, Matrix Double,Matrix Double) ->(Vector Double -> (Double,Vector Double)) 
+runMalaMP :: Matrix Double -> (Matrix Double,Matrix Double) ->(Vector Double -> (Double,Vector Double)) 
          ->  Int -> MalaPar -> [(Double,Vector Double)] -> RIO (MalaPar, [(Double,Vector Double)])
 runMalaMP cov covInvChol pdf nsam init xs0 = go nsam init xs0 where
   go 0 mpar xs = do io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
                     io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
                     return (mpar, xs)
   go n y xs = do y1 <- sample $ mala1 cov covInvChol pdf y
-                 io $ putStr "." >> hFlush stdout
+                 io $ do putStrLn $ show (mpCount y1, mpPi y1, mpSigma y1)
+                         hFlush stdout
                  go (n-1) y1 $ (mpPi y1, mpXi y1):xs 
 
 
@@ -137,7 +138,7 @@ runMalaMPaccept'  cov pdf nsam init  = do
  
 --  pi = pdf $ toList $ mpXi init -}
 
-runMalaMPaccept :: Matrix Double -> (Double, Matrix Double,Matrix Double) -> (Vector Double -> (Double,Vector Double)) 
+runMalaMPaccept :: Matrix Double -> (Matrix Double,Matrix Double) -> (Vector Double -> (Double,Vector Double)) 
          -> Int -> MalaPar ->  RIO (MalaPar, [(Double,Vector Double)])
 runMalaMPaccept cov covInvChol pdf nsam init = go init [] where
   go !mpar !xs
@@ -209,10 +210,10 @@ runMalaRioCodaESS cov pdf want_ess xi = do
             _ -> go mp1 covInvChol (round $ mpCount mp1) xs1
 
     case (spoon (invlndet cov), mbCholSH cov) of
-       (Just (covInv, (lndt,_)), Just covChol) -> go_rest (lndt, covInv, covChol)
+       (Just (covInv, (lndt,_)), Just covChol) -> go_rest (covInv, covChol)
        _ -> let cov' = PDF.posdefify cov in 
             case (spoon (invlndet cov'), mbCholSH cov') of
-              (Just (covInv, (lndt,_)), Just covChol) -> go_rest (lndt, covInv, covChol)
+              (Just (covInv, (lndt,_)), Just covChol) -> go_rest (covInv, covChol)
               _ ->  do io $ putStrLn "non-invertible covariance matrix"
                        return []
 

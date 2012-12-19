@@ -5,7 +5,7 @@ module Main where
 import Math.Probably.MCMC
 import qualified Math.Probably.PDF as PDF
 import Math.Probably.RandIO
-import Math.Probably.MALA
+import Math.Probably.HamMC
 import Math.Probably.FoldingStats
 import Math.Probably.Sampler
 import Control.Applicative
@@ -21,7 +21,9 @@ import Graphics.Gnewplot.Style
 import Graphics.Gnewplot.Panels
 import Graphics.Gnewplot.Instances
 import Graphics.Gnewplot.Histogram
+import qualified Data.Vector.Storable as V
 
+import Debug.Trace
 
 
 import qualified Control.Monad.State.Strict as S
@@ -70,65 +72,31 @@ regrdata = [ 35.1**6.3,
  70.1**	9.1,
  40.6**	7] where (**) = (,)
 
+-- split HMC paper p 5
+nealCov = (2><2) [1, 0.95, 0.95, 1]
+(nealCovInv, (nealLnDet,_)) = invlndet nealCov
+nealMean = fromList [3,3]
+nealPDF v = PDF.multiNormalByInv nealLnDet nealCovInv nealMean v
+nealPostGrad v = 
+  let p = nealPDF v
+      tol = 0.001
+      f (i,x) = let h = max (tol/10) $ tol * x
+                    v' = v V.// [(i,x+h)]
+                    v'' = v V.// [(i,x-h)]
+                in (nealPDF v' - nealPDF v'')/(2*h)
+      grad3 = fromList $ map f $ zip [0..] $ toList v
+  in (p,grad3)
+
+
 main = runRIO $ do
-  --make PDF, sample from it
-  
-  --io $ print covMVN
-  let inisam = return $ fromList $ replicate d 1
-      pdfIV = (pdf2 . toList) 
-  --(p1,init2, cor) <- bestOfTwoCov inisam pdfIV
---  io $ print init2
---  io $ putStrLn $ "p1 = "++show p1
---  io $ print cor
-
-
-  --let iniampar = mkAMPar init2 (scale 1 cor) p1 -}
-  {-iniampar <- initAdaMetFromCov 1000 pdfIV init2 0
-                                             (scale 0.2 $ cor) 
-  vsamples <- runFixMetRioESS 6 (initFixMet iniampar) (pdfIV)   -}
-  --vsamples <- runMala cor pdfI 10000 init2
-
-  vers <- forM [0..0] $ \i -> do
-    (p1,init2, cor) <- bestOfTwoCov inisam pdfIV
-    io $ print init2
-    io $ putStrLn $ "p1 = "++show p1
-    --io $ print cor
-
-{-    mcmcres <-  runMalaRioCodaESS cor pdf2 50 init2 
-    let vsamples =mcmcres
-        --pseries = map fst mcmcres 
-    let (means, (vars, cov)) = runStat (both meanF $ both varF $ covF 0 1) vsamples
-    io $ putStrLn $ "mala means = "++ (show $ toList means)
-
-    let realvars = map varf [0..(d-1)]
-
---    let varError = runStat meanF $ map (**2) $ zipWith (\got real-> (got-real)/real) ( toList vars) (realvars)
-
-    --io $ putStrLn $ "actual vars = "++ (show $ map varf [0..(d-1)])
-    --io $ putStrLn $ "mala vars = "++ (show $ toList vars)
-
-    --io $ putStrLn $ "var error = "++ (show $ varError)
-
-    --io $ putStrLn $ "actual cov = 0" -- ++ show (covf (0,1))
-    --io $ putStrLn $ "mala cov = "++ show cov
-    io $ gnuplotOnScreen  $ (YFromZero $ HistoStyle "histeps" 50 $ map (@>0) vsamples)    
-
-    --io $ gnuplotOnScreen  $ zip [(0::Double)..] pseries
-    io $ gnuplotOnScreen  $ ("alpha", zip [(0::Double)..] $ map (@>0) vsamples)
-    io $ gnuplotOnScreen  $ ("error_sd", zip [(0::Double)..] $ map (@>1) vsamples    )
-    io $ gnuplotOnScreen  $ ("beta", zip [(0::Double)..] $ map (@>2) vsamples    )
-    io $ gnuplotOnScreen  $ ("thedata", regrdata::[(Double,Double)])
--}    
- --   return varError
-  
-  --io $ putStrLn $ "\n\nmean var error = "++show (runStat meanSEMF vers)
---    io $ putStrLn $ "mala ess = "++ show (calcESSprim $ map (thinV 10) vsamples)
-
-  --x <- sample $ mala1 cor pdfI (0.1, init2, 1)
-  
-                          
-  --io $ print x
-  return ()
+  let vinit = fromList [0,0]
+  io $ print $ nealPostGrad vinit
+  let pinit = fst $ nealPostGrad vinit
+  let hmcp0 = HMCPar vinit 19 0 0.15 0 0 False    
+  (hmcp1,vs) <- runHMC nealPostGrad 30 hmcp0                  
+  io $ mapM print vs
+  io $ print hmcp1
+  return () 
 
 covF i j = pure (-) <*> before meanF (\v -> v@>i * v@>j) 
                     <*> fmap (uncurry (*)) (both (before meanF (@>i)) (before meanF (@>j)))
