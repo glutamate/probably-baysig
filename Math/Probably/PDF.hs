@@ -9,6 +9,7 @@ import qualified Math.Probably.Student as S
 import Numeric.LinearAlgebra
 import Control.Spoon
 import Control.DeepSeq
+import qualified Data.Vector.Storable as VS
 
 -- | The type of probablility density functions
 type PDF a = a->Double
@@ -116,6 +117,9 @@ multiNormalByInvFixCov invSigma mu =
       mat1 = head . head . toLists
   in \x-> (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
 
+
+multiNormalIndep :: Vector Double -> Vector Double -> PDF (Vector Double)
+multiNormalIndep vars mus xs= VS.sum $ VS.zipWith3 (\var mu x -> normalLogPdf mu var x) vars mus xs
 
 
 {-mu1 = 2 |> [0, 0::Double]

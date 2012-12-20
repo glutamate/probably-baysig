@@ -6,6 +6,7 @@ import Math.Probably.MCMC
 import qualified Math.Probably.PDF as PDF
 import Math.Probably.RandIO
 import Math.Probably.HamMC
+import Math.Probably.MALA
 import Math.Probably.FoldingStats
 import Math.Probably.Sampler
 import Control.Applicative
@@ -73,9 +74,13 @@ regrdata = [ 35.1**6.3,
  40.6**	7] where (**) = (,)
 
 -- split HMC paper p 5
-nealCov = (2><2) [1, 0.95, 0.95, 1]
+nealCov :: Matrix Double
+neal_d = 500
+
+nealCov = buildMatrix neal_d neal_d $ \(i,j) -> if i==j then realToFrac (i+1) / 100 else 0
+--(2><2) [1, 0.95, 0.95, 2]
 (nealCovInv, (nealLnDet,_)) = invlndet nealCov
-nealMean = fromList [3,3]
+nealMean = fromList $ replicate neal_d 3
 nealPDF v = PDF.multiNormalByInv nealLnDet nealCovInv nealMean v
 nealPostGrad v = 
   let p = nealPDF v
@@ -89,14 +94,24 @@ nealPostGrad v =
 
 
 main = runRIO $ do
-  let vinit = fromList [0,0]
-  io $ print $ nealPostGrad vinit
+  --io $ print $ nealCov
+  --io $ print $ nealCovInv 
+  let vinit = fromList $ replicate neal_d (-10)
+  --io $ print $ nealPostGrad vinit
   let pinit = fst $ nealPostGrad vinit
-  let hmcp0 = HMCPar vinit 19 0 0.15 0 0 False    
-  (hmcp1,vs) <- runHMC nealPostGrad 30 hmcp0                  
-  io $ mapM print vs
-  io $ print hmcp1
+--  let hmcp0 = HMCPar vinit 19 0 0.15 0 0 False    
+  (vs) <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 vinit                  
+  --io $ forM (vs) $ \v -> print (v, nealPDF v)
+  io $ print $ runStat meanSDF $ map (@>20) $ drop 10 $ reverse vs
+  io $ print $ runStat meanSDF $ map (@>80) $ drop 10 $ reverse vs
+  let have_ess = calcESSprim $ thin 10 vs
+  io  $ putStrLn $ "ESS=" ++show have_ess
+  --io $ print hmcp1
   return () 
+
+thin n [] = []
+thin n (x:xs) = x : thin n (drop n xs)
+
 
 covF i j = pure (-) <*> before meanF (\v -> v@>i * v@>j) 
                     <*> fmap (uncurry (*)) (both (before meanF (@>i)) (before meanF (@>j)))

@@ -114,7 +114,7 @@ eval s = do
  
 
 
-mu :: Vector Double
+{-mu :: Vector Double
 sigma :: Matrix Double
 
 mystery = -1
@@ -125,7 +125,7 @@ sigma =  (3><3) [ 1,    1,       0,
                     
 
 samIt = sampleNIO 2 $ multiNormal mu sigma
-
+ -}
 -- | The joint distribution of two independent distributions
 joint :: Sampler a -> Sampler b -> Sampler (a,b)
 joint sf1 sf2 = liftM2 (,) sf1 sf2
@@ -221,6 +221,13 @@ multiNormalByChol mu cholSigma =
         let c = asColumn z
         let r = asRow z
         return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
+
+multiNormalIndep  :: Vector Double -> Vector Double -> Sampler (Vector Double)
+multiNormalIndep vars mus = do
+   let k = dim mus
+   gs <- gaussManyUnitD k
+   return $ fromList $ zipWith3 (\var mu g -> g*sqrt(var) + mu) (toList vars) (toList mus) gs
+
 
 
 --http://en.wikipedia.org/wiki/Log-normal_distribution#Generating_log-normally-distributed_random_variates
