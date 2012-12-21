@@ -57,7 +57,7 @@ instance Covariance (Matrix Double,Matrix Double,Matrix Double) where
 
 instance Covariance (Vector Double) where
   mvnSampler mu sigma varv 
-    = multiNormalIndep mu (scale sigma varv)
+    = multiNormalIndep (scale sigma varv) mu
   mvnPDF mu sigma varv
     = PDF.multiNormalIndep (scale sigma varv) mu
   covMul varv v = VS.zipWith (*) varv  v
@@ -319,7 +319,7 @@ calcCovariance :: Vector Double ->
 calcCovariance vinit vnear postgrad posterior = finalcov where
    ndim = dim vinit
    finalcov 
-     | ndim >  200 --FIXME 
+     | ndim > 20000 --FIXME 
         = Left $ calcFDindepVars vinit vnear posterior
      | otherwise 
         = hessToCov (calcFDhess vinit vnear postgrad) True
@@ -357,7 +357,7 @@ calcFDhess v v' postgrad = hess2 where
 hessToCov hess allow_retry = 
    let vars = Left $ mapVector (negate . recip) $ takeDiag hess in
    case spoon $ inv $ negate $ hess of
-     Just cov -> case spoon $ cholSH cov of
+     Just cov -> case mbCholSH cov of
                    Just cholm ->  Right (cov, negate hess, cholm)
                    Nothing -> if allow_retry then hessToCov (PDF.posdefify hess) False else vars
      Nothing -> if allow_retry then hessToCov (PDF.posdefify hess) False else vars  {- case spoon $ inv $ negate $ PDF.posdefify hess of
