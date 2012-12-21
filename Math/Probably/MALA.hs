@@ -140,7 +140,7 @@ runMalaBlocks :: Covariance a => a -> (Vector Double -> (Double,Vector Double))
 runMalaBlocks cov  postgrad nsam truncN thinN init  vixs = go nsam initBlocks init []  where
   initBlocks = flip map vixs $ \vix-> 
      (restrict vix cov, 
-      MalaPar (VS.backpermute init vix) undefined undefined 0.001 0 0 False thinN truncN,
+      MalaPar (VS.backpermute init vix) 0 (fromList [0]) 0.001 0 0 False thinN truncN,
       vix)
   go 0 _ _ vs = return vs
   go n blocks0 v0 vs = do
@@ -319,10 +319,10 @@ calcCovariance :: Vector Double ->
 calcCovariance vinit vnear postgrad posterior = finalcov where
    ndim = dim vinit
    finalcov 
-     | ndim > 200 
+     | ndim >  200 --FIXME 
         = Left $ calcFDindepVars vinit vnear posterior
      | otherwise 
-        = hessToCov $ calcFDhess vinit vnear postgrad
+        = hessToCov (calcFDhess vinit vnear postgrad) True
 
 calcFDindepVars v v' post = vars where
    hv = mapVector abs $ v - v'
@@ -354,21 +354,19 @@ calcFDhess v v' postgrad = hess2 where
                                                  else hess1 @@> (j,i)
  
 
-hessToCov hess = 
+hessToCov hess allow_retry = 
    let vars = Left $ mapVector (negate . recip) $ takeDiag hess in
    case spoon $ inv $ negate $ hess of
-     Just cov -> case mbCholSH cov of
+     Just cov -> case spoon $ cholSH cov of
                    Just cholm ->  Right (cov, negate hess, cholm)
-                   Nothing -> case mbCholSH $ PDF.posdefify cov of
-                                Just cholm -> Right (cov, negate hess, cholm)
-                                Nothing -> vars 
-     Nothing -> case spoon $ inv $ negate $ PDF.posdefify hess of
+                   Nothing -> if allow_retry then hessToCov (PDF.posdefify hess) False else vars
+     Nothing -> if allow_retry then hessToCov (PDF.posdefify hess) False else vars  {- case spoon $ inv $ negate $ PDF.posdefify hess of
                   Just cov -> case mbCholSH cov of
                                 Just cholm ->  Right (cov, negate hess,cholm)
                                 Nothing -> case mbCholSH $ PDF.posdefify cov of
                                             Just cholm -> Right (cov, negate hess,cholm)
                                             Nothing -> vars
-                  Nothing -> vars
+                  Nothing -> vars -}
 
 acceptSM ampar  | mpCount ampar == 0 = "0/0"
                | otherwise = printf "%.3g" (rate::Double) ++ " ("++show yes++"/"++show total++")" where
