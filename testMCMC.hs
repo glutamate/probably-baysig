@@ -92,20 +92,44 @@ nealPostGrad v =
       grad3 = fromList $ map f $ zip [0..] $ toList v
   in (p,grad3)
 
+covM1 :: Matrix Double
+covM1 = (3><3) [1, 0,0, 
+                0 , 2,0, 
+                0, 0, 4]
+
+means1, vars2 :: Vector Double
+vars2 = fromList [1,2,4]
+
+means1 = fromList [3,3,3]
+
+(covMinv, (covMLnDet,_)) = invlndet covM1
+
 
 main = runRIO $ do
   --io $ print $ nealCov
   --io $ print $ nealCovInv  
-  let vinit = fromList $ replicate neal_d (-10)
+  vs1 <- sample $ sequence $ replicate 10000 $ multiNormal means1 covM1
+  io $ print $ runStat meanSDF $ map (@>0) $ vs1
+  io $ print $ runStat meanSDF $ map (@>1) $ vs1
+  io $ print $ runStat meanSDF $ map (@>2) $ vs1
+  vs1 <- sample $ sequence $ replicate 10000 $ mvnSampler means1 2 vars2
+  io $ print $ runStat meanSDF $ map (@>0) $ vs1
+  io $ print $ runStat meanSDF $ map (@>1) $ vs1
+  io $ print $ runStat meanSDF $ map (@>2) $ vs1
+  io $ print $ PDF.multiNormal means1 (scale 2 covM1) (fromList [2,2,2])
+--  io $ print $ PDF.multiNormalByInv covMLnDet covMinv means1 (fromList [2,2,2])
+--  io $ print $ PDF.multiNormalIndep vars2 means1  (fromList [2,2,2])
+  io $ print $ mvnPDF means1 2 vars2  (fromList [2,2,2])
+{-  let vinit = fromList $ replicate neal_d (-10)
   --io $ print $ nealPostGrad vinit
   let pinit = fst $ nealPostGrad vinit
 --  let hmcp0 = HMCPar vinit 19 0 0.15 0 0 False    
-  (vs) <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 100 10 vinit                  
+  (vs) <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 10 10 vinit                  
   --io $ forM (vs) $ \v -> print (v, nealPDF v)
   io $ print $ runStat meanSDF $ map (@>20) $ drop 10 $ reverse vs
   io $ print $ runStat meanSDF $ map (@>80) $ drop 10 $ reverse vs
   let have_ess = calcESSprim $ thin 10 vs
-  io  $ putStrLn $ "ESS=" ++show have_ess
+  io  $ putStrLn $ "ESS=" ++show have_ess -}
   --io $ print hmcp1
   return () 
 

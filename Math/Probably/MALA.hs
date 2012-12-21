@@ -319,19 +319,19 @@ calcCovariance :: Vector Double ->
 calcCovariance vinit vnear postgrad posterior = finalcov where
    ndim = dim vinit
    finalcov 
-     | ndim > 20000 --FIXME 
+     | ndim > 0 -- 20000 --FIXME 
         = Left $ calcFDindepVars vinit vnear posterior
      | otherwise 
         = hessToCov (calcFDhess vinit vnear postgrad) True
 
 calcFDindepVars v v' post = vars where
-   hv = mapVector abs $ v - v'
+   hv = max 1e-8 $ mapVector abs $ v - v'
    n = dim v
    postv = post v
    postPlus i = post $ v VS.// [(i,v @>i + hv @> i)]
    postMinus i = post $ v VS.// [(i,v @>i - hv@> i)]
    vars = buildVector n fvar
-   fvar i = recip $ (postPlus i - 2*postv + postMinus i)/((hv @> i)*(hv @> i))
+   fvar i = negate $ recip $ (postPlus i - 2*postv + postMinus i)/((hv @> i)*(hv @> i))
 
 
 calcFDhess v v' postgrad = hess2 where

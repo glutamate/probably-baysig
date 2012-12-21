@@ -45,7 +45,7 @@ normal = normalLogPdf
 
 normalLogPdf :: (Real a, Floating a) => a-> a-> a -> a
 normalLogPdf mean variance x
-   = log (1/sqrt (2.0*pi*variance)) + (0.0-((x-mean)*(x-mean)/(2*variance)))
+   = ((log 1)-(0.500*(log ((2.000*pi)*variance))))-(((x-mean)**2)/(2*variance))
 
 
 -- | Normal distribution, specialised for Doubles
