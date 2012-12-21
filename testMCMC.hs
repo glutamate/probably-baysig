@@ -95,12 +95,12 @@ nealPostGrad v =
 
 main = runRIO $ do
   --io $ print $ nealCov
-  --io $ print $ nealCovInv 
+  --io $ print $ nealCovInv  
   let vinit = fromList $ replicate neal_d (-10)
   --io $ print $ nealPostGrad vinit
   let pinit = fst $ nealPostGrad vinit
 --  let hmcp0 = HMCPar vinit 19 0 0.15 0 0 False    
-  (vs) <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 vinit                  
+  (vs) <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 100 10 vinit                  
   --io $ forM (vs) $ \v -> print (v, nealPDF v)
   io $ print $ runStat meanSDF $ map (@>20) $ drop 10 $ reverse vs
   io $ print $ runStat meanSDF $ map (@>80) $ drop 10 $ reverse vs

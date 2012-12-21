@@ -46,6 +46,7 @@ class Covariance a where
   mvnSampler :: Vector Double ->  Double -> a -> Sampler (Vector Double)
   mvnPDF :: Vector Double -> Double -> a -> PDF.PDF (Vector Double)
   covMul :: a -> Vector Double -> Vector Double
+  restrict :: Vector Int -> a -> a
 
 instance Covariance (Matrix Double,Matrix Double,Matrix Double) where
   mvnSampler mu sigma (cov, covInv, covChol) 
@@ -60,6 +61,7 @@ instance Covariance (Vector Double) where
   mvnPDF mu sigma varv
     = PDF.multiNormalIndep (scale sigma varv) mu
   covMul varv v = VS.zipWith (*) varv  v
+  restrict vixs v = VS.backpermute v vixs
 
 data MalaPar = MalaPar { mpXi :: !(Vector Double),
                          mpPi :: !Double,
@@ -67,7 +69,9 @@ data MalaPar = MalaPar { mpXi :: !(Vector Double),
                          mpSigma :: !Double,
                          mpCount :: !Double,
                          mpAccept :: !Double,
-                         mpFreezeSigma :: !Bool } --,
+                         mpFreezeSigma :: !Bool,
+                         mpThin :: !Int,
+                         mpMaxGradLen :: !Double } --,
 --                         mpLastRatio :: !Double }
   deriving Show
 
@@ -80,18 +84,22 @@ unPair (Pair x y) = (x,y)
 unList (Cons x xs) = x: unList xs
 unList Nil =[]
 
-trunc v = scale (100/(max 100 (norm2 v))) v
+trunc t v = scale (t/(max t (norm2 v))) v
 
 mala1 :: Covariance a => a -> (Vector Double -> (Double,Vector Double)) 
+         -> Bool 
          -> MalaPar
          -> Sampler MalaPar
-mala1 cov postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
-                
+mala1 cov postgrad useCache
+      (MalaPar xi piCached gradientiCached sigma tr tracc freeze thinn maxGrad) = do
+  let (pi,gradienti) = if useCache 
+                          then (piCached, gradientiCached)
+                          else postgrad xi
   let xstarMean = xi + scale (sigma/2) (cov `covMul` gradienti)
   xstar <- mvnSampler xstarMean sigma cov
   u <- unitSample
   let (!pstar, gradientStarUntrunc) = postgrad xstar
-      gradientStar = trunc gradientStarUntrunc
+      gradientStar = trunc maxGrad gradientStarUntrunc
   let !revJumpMean = xstar + scale (sigma/2) (cov `covMul` gradientStar)
       ptop = mvnPDF revJumpMean sigma cov xi
       pbot = mvnPDF xstarMean sigma cov xstar
@@ -102,14 +110,47 @@ mala1 cov postgrad (MalaPar xi pi gradienti sigma tr tracc freeze) = do
   if u < ratio
      then return $ MalaPar xstar pstar (gradientStar) 
                            (if freeze then sigma else (min 1.4 $ 1+kmala/tr')*sigma) 
-                           (tr+1) (tracc+1) freeze
+                           (tr+1) (tracc+1) freeze  thinn maxGrad
 --                           sigma (tr+1) (tracc+1)
      else return $ MalaPar xi pi ( gradienti) 
                            (if freeze then sigma else (max 0.7143 $ 1-kmala/tr')**1.3*sigma) 
-                           (tr+1) tracc freeze
+                           (tr+1) tracc freeze thinn maxGrad
 --                           sigma (tr+1) tracc
 
+
+blockMala1 :: Covariance a => 
+  (Vector Double -> (Double,Vector Double)) ->
+  Vector Double -> 
+  [(a, MalaPar, Vector Int)] ->
+  Sampler (Vector Double, [(a, MalaPar, Vector Int)])
+blockMala1 postgrad xi blocks = do
+  let go totalV [] accblocks = return (totalV, reverse accblocks)
+      go totalV ((cov, mp0, vixs) : blocks) accblocks = do
+          let myPostGrad vpars 
+               = let (p, grad) = postgrad $ VS.update_ totalV vixs vpars
+                 in (p, VS.backpermute grad vixs)             
+          mp1 <- mala1 cov myPostGrad False mp0
+          let newTotalV = VS.update_ totalV vixs (mpXi mp1)
+          go newTotalV blocks $ (cov, mp1, vixs) : accblocks
+  go xi blocks []
   
+runMalaBlocks :: Covariance a => a -> (Vector Double -> (Double,Vector Double)) 
+         ->  Int -> Double -> Int -> Vector Double -> [Vector Int] 
+         -> RIO [Vector Double]
+runMalaBlocks cov  postgrad nsam truncN thinN init  vixs = go nsam initBlocks init []  where
+  initBlocks = flip map vixs $ \vix-> 
+     (restrict vix cov, 
+      MalaPar (VS.backpermute init vix) undefined undefined 0.001 0 0 False thinN truncN,
+      vix)
+  go 0 _ _ vs = return vs
+  go n blocks0 v0 vs = do
+        (v1, blocks1) <- sample $ blockMala1 postgrad v0 blocks0 
+        let newChainRes = if thinN == 0 || n `mod` thinN ==0
+                             then v1 : vs
+                             else vs
+        go (n-1) blocks1 v1 newChainRes 
+
+
 {-runMala :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
          ->  Int -> Vector Double -> RIO [(Double,Vector Double)]
 runMala cov postgrad nsam init = go nsam mp1 [] where
@@ -127,10 +168,13 @@ runMalaMP cov  pdf nsam init xs0 = go nsam init xs0 where
   go 0 mpar xs = do io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
                     io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
                     return (mpar, xs)
-  go n y xs = do y1 <- sample $ mala1 cov pdf y
+  go n y xs = do y1 <- sample $ mala1 cov pdf True y
                  io $ do putStrLn $ show (mpCount y1, mpPi y1, mpSigma y1)
                          hFlush stdout
-                 go (n-1) y1 $ (mpPi y1, mpXi y1):xs 
+                 let newChainRes = if mpThin y1 == 0 || round (mpCount y1) `mod` mpThin y1 ==0
+                                      then (mpPi y1, mpXi y1):xs 
+                                      else xs
+                 go (n-1) y1 newChainRes
 
 runMalaUntilBetter :: Covariance a => a ->(Vector Double -> (Double,Vector Double)) 
          ->  Int -> MalaPar -> RIO (MalaPar, [(Double,Vector Double)])
@@ -139,10 +183,12 @@ runMalaUntilBetter cov  pdf nsam init = go nsam init [] where
   go 0 mpar xs = do io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
                     io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
                     return (mpar, xs)
-  go n y xs = do y1 <- sample $ mala1 cov  pdf y
+  go n y xs = do y1 <- sample $ mala1 cov  pdf True y
                  io $ do putStrLn $ show (mpCount y1, mpPi y1, mpSigma y1)
                          hFlush stdout
-                 let newChainRes = (mpPi y1, mpXi y1):xs 
+                 let newChainRes = if mpThin y1 == 0 || round (mpCount y1) `mod` mpThin y1 ==0
+                                      then (mpPi y1, mpXi y1):xs 
+                                      else xs
                  if mpPi y1 > pTarget 
                     then return (y1, newChainRes)
                     else go (n-1) y1 $ newChainRes
@@ -186,7 +232,7 @@ runMalaMPaccept cov pdf nsam init = go init [] where
     | mpAccept mpar < 0.5 && mpCount mpar > 20 = 
          return (mpar, [])
     | otherwise = do
-         !mpar1 <- sample $ mala1 cov  pdf mpar
+         !mpar1 <- sample $ mala1 cov  pdf True mpar
          io $ putStr ((show (round $ mpAccept mpar)) ++".") >> hFlush stdout
          go mpar1 $ (mpPi mpar1, mpXi mpar1):xs
  
@@ -211,11 +257,11 @@ runMalaRioESS cov pdf want_ess xi = do
                return  $ map snd  xs2 -}
 
 runMalaRioCodaESS ::  Covariance a => a-> (Vector Double -> (Double,Vector Double)) 
-                  ->  Int -> Vector Double -> RIO [Vector Double]
-runMalaRioCodaESS cov pdf want_ess xi = do
+                  ->  Int -> Double -> Vector Double -> RIO [Vector Double]
+runMalaRioCodaESS cov pdf want_ess truncN xi = do
     let (p0,grad0) = pdf xi
     let sigma0 = 1.5 / (realToFrac $ dim xi) -- determined empirically
-    let mp0 = MalaPar xi p0 (trunc grad0) sigma0 0 0 False
+    let mp0 = MalaPar xi p0 (trunc truncN grad0) sigma0 0 0 False 0 truncN
         nsam0 = want_ess*1
     let converged mp  xs = do
          let have_ess = min (mpAccept mp) $ calcESSprim $ map snd xs
@@ -255,29 +301,74 @@ runMalaRioCodaESS cov pdf want_ess xi = do
                        return [] -}
 
 runMalaRioSimple ::  Covariance a => a -> (Vector Double -> (Double,Vector Double)) 
-                  ->  Int -> Vector Double -> RIO [Vector Double]
-runMalaRioSimple cov pdf samples xi = do
+                  ->  Int -> Double -> Int -> Vector Double -> RIO [Vector Double]
+runMalaRioSimple cov pdf samples maxGrad thinN xi = do
     let (p0,grad0) = pdf xi
     let sigma0 = 1.5 / (realToFrac $ dim xi) -- determined empirically
-    let mp0 = MalaPar xi p0 (trunc grad0) sigma0 0 0 False
+    let mp0 = MalaPar xi p0 (trunc maxGrad grad0) sigma0 0 0 False thinN maxGrad
     
     (mp2, xs2) <- runMalaMP cov  pdf samples mp0 []
     io $ putStrLn $ "All done"
     return $ map snd xs2 
 
+calcCovariance :: Vector Double -> 
+                  Vector Double -> 
+                  (Vector Double -> (Double,Vector Double)) ->
+                  (Vector Double -> Double) -> 
+                  Either (Vector Double) (Matrix Double, Matrix Double, Matrix Double)
+calcCovariance vinit vnear postgrad posterior = finalcov where
+   ndim = dim vinit
+   finalcov 
+     | ndim > 200 
+        = Left $ calcFDindepVars vinit vnear posterior
+     | otherwise 
+        = hessToCov $ calcFDhess vinit vnear postgrad
+
+calcFDindepVars v v' post = vars where
+   hv = mapVector abs $ v - v'
+   n = dim v
+   postv = post v
+   postPlus i = post $ v VS.// [(i,v @>i + hv @> i)]
+   postMinus i = post $ v VS.// [(i,v @>i - hv@> i)]
+   vars = buildVector n fvar
+   fvar i = recip $ (postPlus i - 2*postv + postMinus i)/((hv @> i)*(hv @> i))
+
+
+calcFDhess v v' postgrad = hess2 where
+   grad =  snd . postgrad
+   gradi i = (@>i) . grad
+   hv = mapVector abs $ v - v'
+   n = dim v
+   gradv = grad v
+   grads = fromRows $ flip map [0..(n-1)] $ \i -> 
+               grad (v VS.// [(i,v @>i + hv @> i)])
+   fhess (i,j) | i<j = 0
+               | otherwise = (grads @@>(j,i) - (gradv @> i))
+                                       /(2*(hv @> j)) +
+                             (grads @@>(i,j)- (gradv @> j))
+                                       /(2*(hv @> i))
+                                       
+                             
+   hess1 = buildMatrix n n fhess 
+   hess2 = buildMatrix n n $ \(i,j) -> if i>=j then hess1 @@> (i,j)
+                                                 else hess1 @@> (j,i)
+ 
+
 hessToCov hess = 
+   let vars = Left $ mapVector (negate . recip) $ takeDiag hess in
    case spoon $ inv $ negate $ hess of
      Just cov -> case mbCholSH cov of
-                   Just cholm ->  (cov, negate hess, cholm)
+                   Just cholm ->  Right (cov, negate hess, cholm)
                    Nothing -> case mbCholSH $ PDF.posdefify cov of
-                                Just cholm ->   (cov, negate hess, cholm)
-                                Nothing -> error "non invertible matrix."
+                                Just cholm -> Right (cov, negate hess, cholm)
+                                Nothing -> vars 
      Nothing -> case spoon $ inv $ negate $ PDF.posdefify hess of
                   Just cov -> case mbCholSH cov of
-                                Just cholm ->  (cov, negate hess,cholm)
+                                Just cholm ->  Right (cov, negate hess,cholm)
                                 Nothing -> case mbCholSH $ PDF.posdefify cov of
-                                            Just cholm ->  (cov, negate hess,cholm)
-                                            Nothing -> error "totally non invertible matrix."
+                                            Just cholm -> Right (cov, negate hess,cholm)
+                                            Nothing -> vars
+                  Nothing -> vars
 
 acceptSM ampar  | mpCount ampar == 0 = "0/0"
                | otherwise = printf "%.3g" (rate::Double) ++ " ("++show yes++"/"++show total++")" where
