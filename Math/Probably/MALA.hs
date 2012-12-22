@@ -145,6 +145,7 @@ runMalaBlocks cov  postgrad nsam truncN thinN init  vixs = go nsam initBlocks in
   go 0 _ _ vs = return vs
   go n blocks0 v0 vs = do
         (v1, blocks1) <- sample $ blockMala1 postgrad v0 blocks0 
+        io $ print $ (n, map (\(_,mp,_) -> mpPi mp) blocks1)
         let newChainRes = if thinN == 0 || n `mod` thinN ==0
                              then v1 : vs
                              else vs
@@ -325,7 +326,7 @@ calcCovariance vinit vnear postgrad posterior = finalcov where
         = hessToCov (calcFDhess vinit vnear postgrad) True
 
 calcFDindepVars v v' post = vars where
-   hv = max 1e-8 $ mapVector abs $ v - v'
+   hv =  mapVector ( abs) $ v - v'
    n = dim v
    postv = post v
    postPlus i = post $ v VS.// [(i,v @>i + hv @> i)]
