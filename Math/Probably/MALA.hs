@@ -94,7 +94,8 @@ mala1 cov postgrad useCache
       (MalaPar xi piCached gradientiCached sigma tr tracc freeze thinn maxGrad) = do
   let (pi,gradienti) = if useCache 
                           then (piCached, gradientiCached)
-                          else postgrad xi
+                          else let (p, gr_untr) = postgrad xi
+                               in (p, trunc maxGrad gr_untr)
   let xstarMean = xi + scale (sigma/2) (cov `covMul` gradienti)
   xstar <- mvnSampler xstarMean sigma cov
   u <- unitSample
@@ -106,15 +107,18 @@ mala1 cov postgrad useCache
       ratio = exp $   pstar -pi + ptop - pbot
       tr' = max 1 tr
       sigmaNext = case () of
-         _ | freeze -> sigma                    
-  if u < ratio
+         _ | freeze -> sigma
+      accept = tracc / tr    
+      freezeNext | freeze = True
+                 | not freeze = tr > 100 && accept > 0.5 && accept < 0.6  
+  if trace (show $ (tr, pstar ,pi , ratio, sigma)) $ u < ratio
      then return $ MalaPar xstar pstar (gradientStar) 
-                           (if freeze then sigma else (min 1.4 $ 1+kmala/tr')*sigma) 
-                           (tr+1) (tracc+1) freeze  thinn maxGrad
+                           (if freezeNext then sigma else (min 1.4 $ 1+kmala/tr')*sigma) 
+                           (tr+1) (tracc+1) freezeNext  thinn maxGrad
 --                           sigma (tr+1) (tracc+1)
      else return $ MalaPar xi pi ( gradienti) 
-                           (if freeze then sigma else (max 0.7143 $ 1-kmala/tr')**1.3*sigma) 
-                           (tr+1) tracc freeze thinn maxGrad
+                           (if freezeNext then sigma else (max 0.7143 $ 1-kmala/tr')**1.3*sigma) 
+                           (tr+1) tracc freezeNext thinn maxGrad
 --                           sigma (tr+1) tracc
 
 
@@ -144,8 +148,9 @@ runMalaBlocks cov  postgrad nsam truncN thinN init  vixs = go nsam initBlocks in
       vix)
   go 0 _ _ vs = return vs
   go n blocks0 v0 vs = do
-        (v1, blocks1) <- sample $ blockMala1 postgrad v0 blocks0 
-        io $ print $ (n, map (\(_,mp,_) -> mpPi mp) blocks1)
+        (!v1, blocks1) <- sample $ blockMala1 postgrad v0 blocks0
+        let (_,mpLast,_) = last blocks1 
+        io $ print $ (n, mpPi mpLast, map (\(_,mp,_) -> mpSigma mp) blocks1)
         let newChainRes = if thinN == 0 || n `mod` thinN ==0
                              then v1 : vs
                              else vs
@@ -170,10 +175,13 @@ runMalaMP cov  pdf nsam init xs0 = go nsam init xs0 where
                     io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
                     return (mpar, xs)
   go n y xs = do y1 <- sample $ mala1 cov pdf True y
-                 io $ do putStrLn $ show (mpCount y1, mpPi y1, mpSigma y1)
-                         hFlush stdout
+--                 io $ do putStrLn $ show (mpCount y1, mpPi y1, mpSigma y1)
+--                         hFlush stdout
                  let newChainRes = if mpThin y1 == 0 || round (mpCount y1) `mod` mpThin y1 ==0
-                                      then (mpPi y1, mpXi y1):xs 
+                                      then let !xi = mpXi y1
+                                               !pi = mpPi y1
+                                               !more = (pi,xi)
+                                           in more:xs 
                                       else xs
                  go (n-1) y1 newChainRes
 
@@ -305,7 +313,7 @@ runMalaRioSimple ::  Covariance a => a -> (Vector Double -> (Double,Vector Doubl
                   ->  Int -> Double -> Int -> Vector Double -> RIO [Vector Double]
 runMalaRioSimple cov pdf samples maxGrad thinN xi = do
     let (p0,grad0) = pdf xi
-    let sigma0 = 1.5 / (realToFrac $ dim xi) -- determined empirically
+    let sigma0 = 2.7e-4 --1.5 / (realToFrac $ dim xi) -- determined empirically
     let mp0 = MalaPar xi p0 (trunc maxGrad grad0) sigma0 0 0 False thinN maxGrad
     
     (mp2, xs2) <- runMalaMP cov  pdf samples mp0 []
@@ -320,13 +328,15 @@ calcCovariance :: Vector Double ->
 calcCovariance vinit vnear postgrad posterior = finalcov where
    ndim = dim vinit
    finalcov 
-     | ndim > 0 -- 20000 --FIXME 
-        = Left $ calcFDindepVars vinit vnear posterior
+     | ndim > 0 -- > 20000 --FIXME 
+        = Left $ iCov vinit -- Left $ calcFDindepVars vinit vnear posterior
      | otherwise 
-        = hessToCov (calcFDhess vinit vnear postgrad) True
+        = hessToCov (calcFDhess vinit vnear postgrad) Nothing
 
-calcFDindepVars v v' post = vars where
-   hv =  mapVector ( abs) $ v - v'
+iCov v = VS.replicate (VS.length v) 1 -- in (m,m,m)
+
+calcFDindepVars v v' post = trace ("FDVars = "++show (VS.take 10 vars))  $ vars where
+   hv =  mapVector (*1e-4) v --mapVector (max 1e-9 .  abs) $ v - v'
    n = dim v
    postv = post v
    postPlus i = post $ v VS.// [(i,v @>i + hv @> i)]
@@ -338,32 +348,40 @@ calcFDindepVars v v' post = vars where
 calcFDhess v v' postgrad = hess2 where
    grad =  snd . postgrad
    gradi i = (@>i) . grad
-   hv = mapVector abs $ v - v'
+   hv = mapVector (max 1e-9 . abs) $ v - v'
    n = dim v
    gradv = grad v
-   grads = fromRows $ flip map [0..(n-1)] $ \i -> 
+   grads =  fromRows $ flip map [0..(n-1)] $ \i -> 
                grad (v VS.// [(i,v @>i + hv @> i)])
    fhess (i,j) | i<j = 0
                | otherwise = (grads @@>(j,i) - (gradv @> i))
                                        /(2*(hv @> j)) +
                              (grads @@>(i,j)- (gradv @> j))
                                        /(2*(hv @> i))
-                                       
+                 
+--   hess3 = scale (recip $ realToFrac n) $ sum $ map outerSelf $ grads                      
                              
    hess1 = buildMatrix n n fhess 
    hess2 = buildMatrix n n $ \(i,j) -> if i>=j then hess1 @@> (i,j)
-                                                 else hess1 @@> (j,i)
+                                               else hess1 @@> (j,i)
  
 
-hessToCov hess allow_retry = 
-   let vars = Left $ mapVector (negate . recip) $ takeDiag hess in
+outerSelf v= v `outer` v
+
+hessToCov hess mOriginal = 
+   let mTryPosdefify = case mOriginal of 
+            Nothing -> hessToCov (PDF.posdefify hess) (Just hess)
+            Just horiginal -> let ds =  mapVector (negate . recip) 
+                                         $ takeDiag horiginal 
+                              in trace ("USING DIAGS"++show (VS.take 10 ds)) $ Left $ ds
+   in
    case spoon $ inv $ negate $ hess of
      Just cov -> case mbCholSH cov of
-                   Just cholm ->  Right (cov, negate hess, cholm)
-                   Nothing -> if allow_retry then hessToCov (PDF.posdefify hess) False else vars
-     Nothing -> if allow_retry then hessToCov (PDF.posdefify hess) False else vars  {- case spoon $ inv $ negate $ PDF.posdefify hess of
-                  Just cov -> case mbCholSH cov of
-                                Just cholm ->  Right (cov, negate hess,cholm)
+                   Just cholm ->  trace ("invert success:"++show (VS.take 10 $ takeDiag cov) ++ "det="++show (det cov)) $ Right (cov, negate hess, cholm)
+                   Nothing -> trace ("chol fail") mTryPosdefify
+     Nothing -> trace ("inv fail") mTryPosdefify
+                  {- Just cov -> case mbCholSH cov of
+                                Just cholm ->  Right (cov, negate hessToCov,cholm)
                                 Nothing -> case mbCholSH $ PDF.posdefify cov of
                                             Just cholm -> Right (cov, negate hess,cholm)
                                             Nothing -> vars

@@ -75,7 +75,7 @@ regrdata = [ 35.1**6.3,
 
 -- split HMC paper p 5
 nealCov :: Matrix Double
-neal_d = 500
+neal_d = 200
 
 nealCov = buildMatrix neal_d neal_d $ \(i,j) -> if i==j then realToFrac (i+1) / 100 else 0
 --(2><2) [1, 0.95, 0.95, 2]
@@ -108,7 +108,7 @@ means1 = fromList [3,3,3]
 main = runRIO $ do
   --io $ print $ nealCov
   --io $ print $ nealCovInv  
-  vs1 <- sample $ sequence $ replicate 10000 $ multiNormal means1 covM1
+{-  vs1 <- sample $ sequence $ replicate 10000 $ multiNormal means1 covM1
   io $ print $ runStat meanSDF $ map (@>0) $ vs1
   io $ print $ runStat meanSDF $ map (@>1) $ vs1
   io $ print $ runStat meanSDF $ map (@>2) $ vs1
@@ -119,17 +119,20 @@ main = runRIO $ do
   io $ print $ PDF.multiNormal means1 (scale 2 covM1) (fromList [2,2,2])
 --  io $ print $ PDF.multiNormalByInv covMLnDet covMinv means1 (fromList [2,2,2])
 --  io $ print $ PDF.multiNormalIndep vars2 means1  (fromList [2,2,2])
-  io $ print $ mvnPDF means1 2 vars2  (fromList [2,2,2])
-{-  let vinit = fromList $ replicate neal_d (-10)
+  io $ print $ mvnPDF means1 2 vars2  (fromList [2,2,2]) -}
+  let vinit = fromList $ replicate neal_d (1)
   --io $ print $ nealPostGrad vinit
   let pinit = fst $ nealPostGrad vinit
---  let hmcp0 = HMCPar vinit 19 0 0.15 0 0 False    
-  (vs) <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 10 10 vinit                  
+  io $ print $ ("pinit", pinit)
+  let hmcp0 = HMCPar vinit 100 0 0.15 0 0 True
+--  (vs') <- runMalaRioSimple (nealCov, nealCovInv, cholSH nealCov) nealPostGrad 2000 100 10 vinit
+  (hmcp1, vs') <- runHMC nealPostGrad 100 hmcp0
+  let vs = drop 50 $ reverse vs'                  
   --io $ forM (vs) $ \v -> print (v, nealPDF v)
-  io $ print $ runStat meanSDF $ map (@>20) $ drop 10 $ reverse vs
-  io $ print $ runStat meanSDF $ map (@>80) $ drop 10 $ reverse vs
-  let have_ess = calcESSprim $ thin 10 vs
-  io  $ putStrLn $ "ESS=" ++show have_ess -}
+  io $ print $ runStat meanSDF $ map (@>20) $ vs
+  io $ print $ runStat meanSDF $ map (@>80) $ vs
+  let have_ess = calcESSprim $ vs
+  io  $ putStrLn $ "ESS=" ++show have_ess 
   --io $ print hmcp1
   return () 
 
