@@ -109,8 +109,8 @@ mala1 cov postgrad useCache
       sigmaNext = case () of
          _ | freeze -> sigma
       accept = tracc / tr    
-      freezeNext | freeze = True
-                 | not freeze = tr > 100 && accept > 0.5 && accept < 0.6  
+      freezeNext = freeze {-| freeze = True
+                 | not freeze = tr > 100 && accept > 0.5 && accept < 0.6  -}
   if trace (show $ (tr, pstar ,pi , ratio, sigma)) $ u < ratio
      then return $ MalaPar xstar pstar (gradientStar) 
                            (if freezeNext then sigma else (min 1.4 $ 1+kmala/tr')*sigma) 
@@ -329,7 +329,7 @@ calcCovariance vinit vnear postgrad posterior = finalcov where
    ndim = dim vinit
    finalcov 
      | ndim > 0 -- > 20000 --FIXME 
-        = Left $ iCov vinit -- Left $ calcFDindepVars vinit vnear posterior
+        = Left $ calcFDindepVars vinit vnear posterior --Left $ iCov vinit -- 
      | otherwise 
         = hessToCov (calcFDhess vinit vnear postgrad) Nothing
 
