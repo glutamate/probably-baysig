@@ -62,8 +62,7 @@ invGammaD :: Double -> Double -> PDF Double
 invGammaD a b x =log $ (b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
 
 
-logNormal m var x = negate $ (x*sqrt(2*pi*var)) + square (log x - m) / (2*var)
-    where square x = x*x
+logNormal m var x = negate $ log (x*sqrt(2*pi*var)) + (log x - m)**2 / (2*var)
 
 logNormalD :: Double -> Double-> PDF Double
 logNormalD = logNormal
