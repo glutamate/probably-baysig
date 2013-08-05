@@ -2,7 +2,6 @@
 
 module Math.Probably.NelderMead where
 
-import Math.Probably.FoldingStats
 import Numeric.LinearAlgebra
 
 import Data.Ord
@@ -55,40 +54,6 @@ secondLast (x:y:[]) = x
 secondLast (_:xs) = secondLast xs
 
 replaceLast xs x = init xs ++ [x]
-
-hessianFromSimplex :: (Vector Double -> Double) -> [Int] -> [((Int, Int), Double)] -> Simplex -> (Vector Double, Matrix Double)
-hessianFromSimplex f isInt fixed sim = 
-  let mat :: [Vector Double]
-      mat = toRows $ fromColumns $ map fst sim
-      fsw ((y0, ymin),ymax) = (y0, max (ymax-y0) (y0-ymin))
-      swings = flip map mat $ runStat (fmap fsw $ meanF `both` minFrom 1e80 `both` maxFrom (-1e80)) . toList 
-      n = length swings
-      xv = fromList $ map fst swings
-      fxv = f  xv
-      fixedpts = map fst fixed
-      iswings i | i `elem` isInt = atLeastOne $snd $ swings!!i
-                | otherwise = snd $ swings!!i
-      funits d i | d/=i = 0
-                 | i `elem` isInt = atLeastOne $ snd $ swings!!i
-                 | otherwise = snd $ swings!!i 
-      units = flip map [0..n-1] $ \d -> buildVector n $ funits d
-      --http://www.caspur.it/risorse/softappl/doc/sas_docs/ormp/chap5/sect28.htm
-      fhess ij@ (i,j) | ij `elem` fixedpts = fromJust $ lookup ij fixed 
-                      | i>=j = 
-                         ((f $ xv + units!!i + units!!j)
-                          - (f $ xv + units!!i - units!!j)
-                          - (f $ xv - units!!i + units!!j)
-                          + (f $ xv - units!!i - units!!j) ) 
-                          / (4*(iswings i) * (iswings j))
-                      | otherwise = 0.0    
-      hess1= buildMatrix n n fhess 
-      hess2 = buildMatrix n n $ \(i,j) ->if i>=j then hess1@@>(i,j) 
-                                                 else hess1@@>(j,i) 
-
-  -- we probably  ought to make pos-definite
-  -- http://www.mathworks.com/matlabcentral/newsreader/view_thread/103174
-  -- posdefify in R etc  
-  in (fromList (map (fst) swings), hess2)
 
 atLeastOne :: Double -> Double
 atLeastOne x | isNaN x || isInfinite x = 1.0

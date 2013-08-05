@@ -2,15 +2,11 @@
 
 module Math.Probably.HamMC where
 
-import Math.Probably.MCMC
 import qualified Math.Probably.PDF as PDF
-import Math.Probably.RandIO
-import Math.Probably.FoldingStats
 import Math.Probably.Sampler
 import Control.Applicative
 
 import Numeric.LinearAlgebra
-import Numeric.AD
 import Text.Printf
 import System.IO
 import Data.Maybe

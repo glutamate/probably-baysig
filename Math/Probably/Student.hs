@@ -1,6 +1,5 @@
 module Math.Probably.Student where
 
-import Math.Probably.FoldingStats
 import Numeric.LinearAlgebra
 --http://www.haskell.org/haskellwiki/Gamma_and_Beta_function
 --cof :: [Double]
@@ -25,10 +24,6 @@ ixbeta x a b = let top = fac $ a+b-1
 
 studentIntegral t v = 1-ixbeta (v/(v+t*t)) (v/2) (1/2)
 
-oneSampleT v0 = fmap (\(mean,sd,n)-> (mean - v0)/(sd/(sqrt n))) meanSDNF 
-
-pairedSampleT  = before (fmap (\(mean,sd,n)-> (mean)/(sd/(sqrt n))) meanSDNF)
-                        (uncurry (-))
 
 tTerms = fromList $ map tTermUnmemo [1..100]
 

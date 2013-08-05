@@ -2,16 +2,12 @@
 
 module Math.Probably.MALA where
 
-import Math.Probably.MCMC
 import qualified Math.Probably.PDF as PDF
-import Math.Probably.RandIO
-import Math.Probably.FoldingStats
 import Math.Probably.Sampler
 import qualified Math.Probably.PDF as PDF
 import Control.Applicative
 
 import Numeric.LinearAlgebra
-import Numeric.AD
 import Text.Printf
 import System.IO
 import Data.Maybe
@@ -26,42 +22,6 @@ import Debug.Trace
 import Data.IORef
 import Control.Spoon
 
-class IsNaN a where
-  isItNaN :: a -> Bool
-
-instance IsNaN Double where
-  isItNaN = nanOrInf
-
-instance IsNaN (Vector Double) where
-  isItNaN = any nanOrInf . toList
-
-instance IsNaN (Matrix Double) where
-  isItNaN = or . (map (any nanOrInf . toList)) . toRows
-
-checkNaN :: IsNaN a => String -> a -> String
-checkNaN s x | isItNaN x = " "++s++" "
-             | otherwise = ""
-
-class Covariance a where
-  mvnSampler :: Vector Double ->  Double -> a -> Sampler (Vector Double)
-  mvnPDF :: Vector Double -> Double -> a -> PDF.PDF (Vector Double)
-  covMul :: a -> Vector Double -> Vector Double
-  restrict :: Vector Int -> a -> a
-
-instance Covariance (Matrix Double,Matrix Double,Matrix Double) where
-  mvnSampler mu sigma (cov, covInv, covChol) 
-     = multiNormalByChol mu (scale (sqrt sigma) covChol)
-  mvnPDF mu sigma (cov, covInv, covChol) 
-     = PDF.multiNormalByInvFixCov (scale (recip sigma) covInv) mu
-  covMul (cov, covInv, covChol) v = cov <> v
-
-instance Covariance (Vector Double) where
-  mvnSampler mu sigma varv 
-    = multiNormalIndep (scale sigma varv) mu
-  mvnPDF mu sigma varv
-    = PDF.multiNormalIndep (scale sigma varv) mu
-  covMul varv v = VS.zipWith (*) varv  v
-  restrict vixs v = VS.backpermute v vixs
 
 data MalaPar = MalaPar { mpXi :: !(Vector Double),
                          mpPi :: !Double,
@@ -74,15 +34,6 @@ data MalaPar = MalaPar { mpXi :: !(Vector Double),
                          mpMaxGradLen :: !Double } --,
 --                         mpLastRatio :: !Double }
   deriving Show
-
-data Pair a b = Pair !a !b
-
-data List a = Cons !a !(List a)
-            | Nil
-
-unPair (Pair x y) = (x,y)
-unList (Cons x xs) = x: unList xs
-unList Nil =[]
 
 trunc t v = scale (t/(max t (norm2 v))) v
 
@@ -121,52 +72,6 @@ mala1 cov postgrad useCache
                            (tr+1) tracc freezeNext thinn maxGrad
 --                           sigma (tr+1) tracc
 
-
-blockMala1 :: Covariance a => 
-  (Vector Double -> (Double,Vector Double)) ->
-  Vector Double -> 
-  [(a, MalaPar, Vector Int)] ->
-  Sampler (Vector Double, [(a, MalaPar, Vector Int)])
-blockMala1 postgrad xi blocks = do
-  let go totalV [] accblocks = return (totalV, reverse accblocks)
-      go totalV ((cov, mp0, vixs) : blocks) accblocks = do
-          let myPostGrad vpars 
-               = let (p, grad) = postgrad $ VS.update_ totalV vixs vpars
-                 in (p, VS.backpermute grad vixs)             
-          mp1 <- mala1 cov myPostGrad False mp0
-          let newTotalV = VS.update_ totalV vixs (mpXi mp1)
-          go newTotalV blocks $ (cov, mp1, vixs) : accblocks
-  go xi blocks []
-  
-runMalaBlocks :: Covariance a => a -> (Vector Double -> (Double,Vector Double)) 
-         ->  Int -> Double -> Int -> Vector Double -> [Vector Int] 
-         -> RIO [Vector Double]
-runMalaBlocks cov  postgrad nsam truncN thinN init  vixs = go nsam initBlocks init []  where
-  initBlocks = flip map vixs $ \vix-> 
-     (restrict vix cov, 
-      MalaPar (VS.backpermute init vix) 0 (fromList [0]) 0.001 0 0 False thinN truncN,
-      vix)
-  go 0 _ _ vs = return vs
-  go n blocks0 v0 vs = do
-        (!v1, blocks1) <- sample $ blockMala1 postgrad v0 blocks0
-        let (_,mpLast,_) = last blocks1 
-        io $ print $ (n, mpPi mpLast, map (\(_,mp,_) -> mpSigma mp) blocks1)
-        let newChainRes = if thinN == 0 || n `mod` thinN ==0
-                             then v1 : vs
-                             else vs
-        go (n-1) blocks1 v1 newChainRes 
-
-
-{-runMala :: Matrix Double -> (Vector Double -> (Double,Vector Double)) 
-         ->  Int -> Vector Double -> RIO [(Double,Vector Double)]
-runMala cov postgrad nsam init = go nsam mp1 [] where
-  go 0 mpar xs = do io $ putStrLn $ "MALA accept = "++show (mpAccept mpar/mpCount mpar)
-                    io $ putStrLn $ "MALA sigma = "++show (mpSigma mpar)
-                    return xs
-  go n y xs = do y1 <- sample $ mala1 cov postgrad y
-                 go (n-1) y1 $ (mpPi y1, mpXi y1):xs 
-  (pi, gradi) = postgrad init
-  mp1 =  MalaPar init pi (gradi)  1 0 0 False -}
 
 runMalaMP :: Covariance a => a -> (Vector Double -> (Double,Vector Double)) 
          ->  Int -> MalaPar -> [(Double,Vector Double)] -> RIO (MalaPar, [(Double,Vector Double)])
