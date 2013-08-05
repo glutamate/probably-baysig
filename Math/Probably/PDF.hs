@@ -14,20 +14,6 @@ import qualified Data.Vector.Storable as VS
 -- | The type of probablility density functions
 type PDF a = a->Double
 
-instance Show (a->Double) where
-    show f = error "Math.Prob.PDF: showing function" 
-
-instance Eq (a->Double) where
-    f == g = error "Math.Prob.PDF: comparing functions!"
-
-instance Num a => Num (a->Double) where
-    f + g = \x-> f x + g x
-    f * g = \x-> f x * g x
-    f - g = \x-> f x - g x
-    abs f = \x -> abs (f x)
-    signum f = \x-> signum $ f x
-    fromInteger = error $ "Math.Prob.PDF: frominteger on function"
-
 -- | Uniform distributions
 uniform :: (Real a, Fractional a) => a-> a-> PDF a
 uniform from to = \x-> if x>=from && x <=to
@@ -35,9 +21,6 @@ uniform from to = \x-> if x>=from && x <=to
                                else 0
 
 --http://en.wikipedia.org/wiki/Normal_distribution
--- | Normal distribution
-gauss :: (Real a, Floating a) => a-> a-> PDF a
-gauss mean sd x = realToFrac $ negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
 
 -- | Normal distribution by variance
 normal :: (Real a, Floating a) => a-> a-> a -> a
@@ -49,23 +32,18 @@ normalLogPdf mean variance x
 
 
 -- | Normal distribution, specialised for Doubles
-gaussD :: Double -> Double-> PDF Double
-gaussD mean sd x = negate $ (x-mean)**2/(2*sd*sd) + log(sd*sqrt(2*pi))
-
 gammafun = exp . S.gammaln
 
 -- | <http://en.wikipedia.org/wiki/Gamma_distribution>
-gammaD :: Double -> Double -> PDF Double
-gammaD k theta x = log $ x**(k-1)*(exp(-x/theta)/(theta**k*(exp (S.gammaln k))))
+gamma :: Double -> Double -> PDF Double
+gamma k theta x = log $ x**(k-1)*(exp(-x/theta)/(theta**k*(exp (S.gammaln k))))
 
-invGammaD :: Double -> Double -> PDF Double
-invGammaD a b x =log $ (b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
+invGamma :: Double -> Double -> PDF Double
+invGamma a b x =log $ (b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
 
 
-logNormal m var x = negate $ log (x*sqrt(2*pi*var)) + (log x - m)**2 / (2*var)
-
-logNormalD :: Double -> Double-> PDF Double
-logNormalD = logNormal
+logNormal :: Double -> Double-> PDF Double
+logNormal = logNormal
 
 -- | Beta distribution 
 beta a b x = log $ (recip $ S.beta a b) * x ** (a-1) * (1-x) ** (b-1)

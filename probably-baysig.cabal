@@ -33,7 +33,9 @@ Library
                         Math.Probably.Student,
                         Math.Probably.PDF,
                         Math.Probably.NelderMead,
-                        Math.Probably.BFGS
+                        Math.Probably.BFGS,
+                        Math.Probably.MCMC
+
 --                        Math.Probably.MALA,
 --                        Math.Probably.HamMC
 
