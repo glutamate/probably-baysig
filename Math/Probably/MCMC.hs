@@ -11,29 +11,17 @@ type Gradient = Vector Double
 type Parameters = Vector Double
 type PosteriorDensity = Double
 
---function to calculate posterior and gradient 
+--type of function to calculate posterior and gradient 
 type PostGradF =  Parameters -> (PosteriorDensity, Gradient)
 
---function to calculate posterior  
+--type of function to calculate posterior  
 type PosteriorF =  Parameters -> PosteriorDensity
+
+-- Strategies: a "strategy" is an algorithm for MCMC. example: random
+-- walk metropolis, adaptive metropolis, mala, hamiltonian etc etc. 
 
 -- type parameter `extra` is the extra information an algorithm gets to lug around.
 --   use for e.g. adaptation parameters.
-
-type GStrategyKernel extra = 
-      PostGradF
-        -> Parameters --current point in parameter space
-        -> extra -- current "stuff"
-        -> Maybe (PosteriorDensity, Gradient) --previous gradient and posterior, if available
-        -> Prob ((Parameters, extra), --next point in param space
-                 Maybe (PosteriorDensity, Gradient))
-
-type VStrategyKernel extra = 
-      PosteriorF
-        -> Parameters --current point
-        -> extra 
-        -> Maybe PosteriorDensity --prev posterior val for caching, if available
-        -> Prob ((Parameters, extra), Maybe PosteriorDensity) 
 
 data Strategy extra
       -- GStrategy: based on gradients. the first 
@@ -43,8 +31,30 @@ data Strategy extra
     | VStrategy (VStrategyKernel extra)
                 (Parameters -> extra) --"extra" initialiser
 
+--transition kernel for gradient-based strategies
+type GStrategyKernel extra = 
+      PostGradF
+        -> Parameters --current point in parameter space
+        -> extra -- current "stuff"
+        -> Maybe (PosteriorDensity, Gradient) --previous gradient and posterior, if available
+        -> Prob ((Parameters, extra), --next point in param space
+                 Maybe (PosteriorDensity, Gradient))
 
-runChain :: Prob Parameters -> PosteriorF -> PostGradF -> Int -> Int -> Strategy a -> Prob [Parameters]
+--transition kernel for non-gradient-based strategies
+type VStrategyKernel extra = 
+      PosteriorF
+        -> Parameters --current point
+        -> extra 
+        -> Maybe PosteriorDensity --prev posterior val for caching, if available
+        -> Prob ((Parameters, extra), Maybe PosteriorDensity) 
+
+runChain :: Prob Parameters -- initial values 
+         -> PosteriorF      -- posterior function
+         -> PostGradF       -- posterior + gradient function
+         -> Int             -- how much should we thin the chain?
+         -> Int             -- how many samples do we need
+         -> Strategy a      -- the strategy
+         -> Prob [Parameters] --output. 
 runChain inisam posterior postgrad thinn nsamples strat = do
    ini <- inisam
    let stuff0 = case strat of
@@ -53,7 +63,7 @@ runChain inisam posterior postgrad thinn nsamples strat = do
    case strat of
       GStrategy kernel _ -> runChainG ini postgrad thinn nsamples stuff0 Nothing kernel
       VStrategy kernel _ -> runChainV ini posterior thinn nsamples stuff0 Nothing kernel
- 
+
 runChainG :: Parameters -> PostGradF -> Int -> Int -> a -> Maybe (PosteriorDensity, Gradient) -> GStrategyKernel a -> Prob [Parameters]
 runChainG x0 postgrad _    0     _      _    _ = return [] -- done
 runChainG x0 postgrad thin iters stuff0 mpg  gstrat  = do
