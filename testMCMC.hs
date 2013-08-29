@@ -6,8 +6,12 @@ import Math.Probably.MCMC
 import qualified Math.Probably.PDF as PDF
 import Math.Probably.Sampler
 import Data.Text as T
+
+import Strategy.RandomWalkMetropolis (rwm)
+
 import qualified Target.Regression
 import qualified Target.Prelude
+
 
 main = do
   (posterior, postgrad,v2rec,inisam) <- Target.Regression.target

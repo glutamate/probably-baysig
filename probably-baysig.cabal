@@ -38,7 +38,7 @@ Library
                         Math.Probably.FoldingStats,
                         Target.Prelude,
                         Target.Regression
-
+                        Strategy.RandomWalkMetropolis 
 --                        Math.Probably.MALA,
 --                        Math.Probably.HamMC
 
