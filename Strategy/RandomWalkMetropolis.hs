@@ -18,7 +18,8 @@ rwmTrans posterior xi (sigma,(i, iaccept)) mpi = do
    let accept = u < ratio
 
    --diminishing adaptation:
-   let sigmaNext = if accept then sigma*(min 1.4 $ 1+5.0/i)^3 else sigma*(max 0.7143 $ 1-5.0/i)
+   let sigmaNext = if accept then sigma*(min 1.4 $ 1+5.0/i)^3 
+                             else sigma*(max 0.7143 $ 1-5.0/i)
 
    return $ if accept 
                then ((xstar, (sigmaNext, (i+1, iaccept+1))), Just pstar)
