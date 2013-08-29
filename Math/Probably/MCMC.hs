@@ -54,16 +54,18 @@ runChain :: Prob Parameters -- initial values
          -> Int             -- how much should we thin the chain?
          -> Int             -- how many samples do we need
          -> Strategy a      -- the strategy
-         -> Prob [Parameters] --output. 
+         -> Prob (Prob Parameters) -- output. 
 runChain inisam posterior postgrad thinn nsamples strat = do
    ini <- inisam
    let stuff0 = case strat of
                   GStrategy _ inistuff -> inistuff ini
                   VStrategy _ inistuff -> inistuff ini
-   case strat of
-      GStrategy kernel _ -> runChainG ini postgrad thinn nsamples stuff0 Nothing kernel
-      VStrategy kernel _ -> runChainV ini posterior thinn nsamples stuff0 Nothing kernel
-
+   chain <- case strat of
+      GStrategy kernel _ 
+         -> runChainG ini postgrad thinn nsamples stuff0 Nothing kernel
+      VStrategy kernel _ 
+         -> runChainV ini posterior thinn nsamples stuff0 Nothing kernel
+   return $ Samples chain
 runChainG :: Parameters -> PostGradF -> Int -> Int -> a -> Maybe (PosteriorDensity, Gradient) -> GStrategyKernel a -> Prob [Parameters]
 runChainG x0 postgrad _    0     _      _    _ = return [] -- done
 runChainG x0 postgrad thin iters stuff0 mpg  gstrat  = do

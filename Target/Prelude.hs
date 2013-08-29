@@ -177,8 +177,8 @@ instance FromCSVCell Double where
 instance FromCSVCell T.Text where
   fromCSVcell  = id
 
-printC :: Consolable a => T.Text -> a -> IO () 
-printC s x = showC x >>= \s1-> putStrLn (T.unpack s++" => "++s1)
+printC :: Consolable a => String -> a -> IO () 
+printC s x = showC x >>= \s1-> putStrLn ( s++" => "++s1)
 
 class Consolable a where
   showC :: a -> IO String
