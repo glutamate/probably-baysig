@@ -1,24 +1,23 @@
-{-# LANGUAGE TypeOperators, DeriveDataTypeable, FlexibleInstances, ScopedTypeVariables, ImplicitParams, PackageImports, ViewPatterns #-}
-module Main where
+{-# LANGUAGE TypeOperators, DeriveDataTypeable, FlexibleInstances, ScopedTypeVariables, ImplicitParams, ViewPatterns #-}
+module Target.Regression where
 
-import "baysig-core" Baysig.HsBackend.HsPrelude
-import qualified "records" Data.Record as R
+import Target.Prelude
+import qualified Data.Record as R
 import Prelude hiding (scanl,repeat,replicate)
-import "records" Data.Record.Combinators ((!!!))
-import "kinds" Data.Kind
+import Data.Record.Combinators ((!!!))
+import Data.Kind
 import Data.List (transpose)
-import "type-functions" Data.TypeFun
-import "hmatrix" Numeric.LinearAlgebra hiding (diag, linspace, svd, )
-import "probably-base" Math.Probably.Sampler hiding (uniform,primOneOf,logNormal,invGamma,binomial,gamma,oneOf,bernoulli)
-import qualified "text" Data.Text as T
+import Data.TypeFun
+import Numeric.LinearAlgebra hiding (diag, linspace, svd, )
+import Math.Probably.Sampler hiding (uniform,primOneOf,logNormal,invGamma,binomial,gamma,oneOf,bernoulli, normal, unormal, unit)
+import qualified Data.Text as T
 import Foreign.Storable (Storable)
 import Data.STRef
 import Control.Monad.ST
 import Control.Monad (forM, forM_)
-import qualified "vector" Data.Vector.Storable.Mutable as VSM
-import qualified "vector" Data.Vector.Storable as VS
-import "storable-tuple" Foreign.Storable.Tuple
-import "bugsess" Bugsess.Direct
+import qualified Data.Vector.Storable.Mutable as VSM
+import qualified Data.Vector.Storable as VS
+import Foreign.Storable.Tuple
 
 tmax :: Double
 tmax = 1.000
@@ -53,10 +52,10 @@ linspace = \((from::Double)) -> \((to::Double)) -> \((num::Double)) -> let {(dt:
  } in map (\((i::Double)) -> ((unround i)*dt)+from) is
 
 countSamples :: ((Prob a) -> (Maybe Int))
-countSamples = \(((_arg0)::Prob a)) -> case _arg0 of {Samples (xs::[a]) -> Just (length xs); Sam _ -> Nothing}
+countSamples = \(((_arg0)::Prob a)) -> case _arg0 of {Samples (xs::[a]) -> Just (length xs); Sampler _ -> Nothing}
 
 unit :: Prob Double
-unit = Sam primUnit
+unit = Sampler primUnit
 
 primOneOf :: (([a]) -> ((Seed -> ((a,Seed)))))
 primOneOf = \((xs::[a])) -> \((seed::Seed)) -> let {((u::Double),(nextSeed::Seed)) = primUnit seed;
@@ -141,13 +140,13 @@ thinTo = \((n::Int)) -> \((xs::[a])) -> let {(nxs::Int) = length xs;
  } in thin ratio xs
 
 psigPlot :: ((Prob ((Double -> Double))) -> Plot)
-psigPlot = \(((_arg0)::Prob ((Double -> Double)))) -> case _arg0 of {Samples (sigs::[(Double -> Double)]) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.2"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) (return (map Timeseries (thinTo 20 sigs))); Sam (f::(Seed -> ((((Double -> Double)),Seed)))) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.2"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) ((repeat 20 (Sam f))>>=(\((sigs::[(Double -> Double)])) -> return (map Timeseries sigs)))}
+psigPlot = \(((_arg0)::Prob ((Double -> Double)))) -> case _arg0 of {Samples (sigs::[(Double -> Double)]) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.2"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) (return (map Timeseries (thinTo 20 sigs))); Sampler (f::(Seed -> ((((Double -> Double)),Seed)))) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.2"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) ((repeat 20 (Sampler f))>>=(\((sigs::[(Double -> Double)])) -> return (map Timeseries sigs)))}
 
 psigNPlot :: (Int -> (((Prob ((Double -> Double))) -> Plot)))
-psigNPlot = \(((_arg0)::Int)) -> \(((_arg1)::Prob ((Double -> Double)))) -> case (_arg0,_arg1) of {((n::Int),Samples (sigs::[(Double -> Double)])) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.2"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) (return (map Timeseries (thinTo n sigs))); ((n::Int),Sam (f::(Seed -> ((((Double -> Double)),Seed))))) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.1"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) ((repeat n (Sam f))>>=(\((sigs::[(Double -> Double)])) -> return (map Timeseries sigs)))}
+psigNPlot = \(((_arg0)::Int)) -> \(((_arg1)::Prob ((Double -> Double)))) -> case (_arg0,_arg1) of {((n::Int),Samples (sigs::[(Double -> Double)])) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.2"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) (return (map Timeseries (thinTo n sigs))); ((n::Int),Sampler (f::(Seed -> ((((Double -> Double)),Seed))))) -> Plot ((((T.pack "fill"),(T.pack "pop_colour"))):((((T.pack "stroke-opacity"),(T.pack "0.1"))):((((T.pack "stroke-width"),(T.pack "2"))):[]))) ((repeat n (Sampler f))>>=(\((sigs::[(Double -> Double)])) -> return (map Timeseries sigs)))}
 
 probBoolToP :: ((Prob Bool) -> (Prob Double))
-probBoolToP = \(((_arg0)::Prob Bool)) -> case _arg0 of {Sam (f::(Seed -> ((Bool,Seed)))) -> (repeat 200 (Sam f))>>=(\((bs::[Bool])) -> probBoolToP (Samples bs)); Samples (bs::[Bool]) -> let {(yeas::[Bool]) = filter id bs;
+probBoolToP = \(((_arg0)::Prob Bool)) -> case _arg0 of {Sampler (f::(Seed -> ((Bool,Seed)))) -> (repeat 200 (Sampler f))>>=(\((bs::[Bool])) -> probBoolToP (Samples bs)); Samples (bs::[Bool]) -> let {(yeas::[Bool]) = filter id bs;
  } in return ((unround (length yeas))/(unround (length bs)))}
 
 pcurve :: (([(Double,(Prob Bool))]) -> Plot)
@@ -201,7 +200,7 @@ fmapP :: (((a -> b)) -> ((((c -> ((a,e)))) -> ((c -> ((b,e)))))))
 fmapP = \((f::(a -> b))) -> \((mx::(c -> ((a,e))))) -> bindP mx (\(x) -> returnP (f x))
 
 fixP :: (Int -> (((Prob a) -> (Prob (Prob a)))))
-fixP = \(((_arg0)::Int)) -> \(((_arg1)::Prob a)) -> case (_arg0,_arg1) of {((n::Int),Sam (f::(Seed -> ((a,Seed))))) -> (repeat n (Sam f))>>=(\((xs::[a])) -> return (Samples xs)); ((n::Int),Samples (xs::[a])) -> return (Samples (thinTo n xs))}
+fixP = \(((_arg0)::Int)) -> \(((_arg1)::Prob a)) -> case (_arg0,_arg1) of {((n::Int),Sampler (f::(Seed -> ((a,Seed))))) -> (repeat n (Sampler f))>>=(\((xs::[a])) -> return (Samples xs)); ((n::Int),Samples (xs::[a])) -> return (Samples (thinTo n xs))}
 
 diag :: ((Vector Double) -> (Matrix Double))
 diag = \((v::Vector Double)) -> fillM (((dim v),(dim v))) (\(((i::Int),(j::Int))) -> if (i==j) then (v@>i) else 0.000)
@@ -450,8 +449,8 @@ gammaLogPdf = \((k::Double)) -> \((theta::Double)) -> \((x::Double)) -> ((((k-1)
 invGammaLogPdf :: (Double -> ((Double -> ((Double -> Double)))))
 invGammaLogPdf = \((a::Double)) -> \((b::Double)) -> \((x::Double)) -> log ((((b**a)/(exp (gammaln a)))*(x**((0.000-a)-1)))*(exp ((0.000-b)/x)))
 
-cookAssert :: ((Prob Double) -> ProbDensity)
-cookAssert = \((s::Prob Double)) -> ProbDensity s (uniformLogPdf 0 1)
+cookAssert :: ((Prob Double) -> SamplerDensity)
+cookAssert = \((s::Prob Double)) -> SamplerDensity s (uniformLogPdf 0 1)
 
 multiNormalLogPdf :: (a -> ((b -> c)))
 multiNormalLogPdf = \(vmean) -> \(cov) -> undefined
@@ -505,7 +504,7 @@ data Slope = Slope deriving Show
 instance R.Name Slope where
    name = Slope
 
-main = do
+get_ = do
   ((fakedata::[((R.X R.:& Y R.::: Double R.:& W R.::: Double) (Id KindStar))]))::[((R.X R.:& Y R.::: Double R.:& W R.::: Double) (Id KindStar))] <- sample (regress1::Prob ([((R.X R.:& Y R.::: Double R.:& W R.::: Double) (Id KindStar))]))
   let prims :: ((R.X R.:& Inisam R.::: Prob ([Double]) R.:& VToRec R.::: ((Vector Double) -> ((R.X R.:& Slope R.::: Double R.:& Sigma R.::: Double R.:& Offset R.::: Double) (Id KindStar))) R.:& Postgrad R.::: ((Vector Double) -> ((Double,(Vector Double)))) R.:& Posterior R.::: (([Double]) -> Double)) (Id KindStar))
       prims = let {(final0::[((R.X R.:& Y R.::: Double R.:& W R.::: Double) (Id KindStar))]) = fakedata;
@@ -530,4 +529,4 @@ main = do
       vtorec = prims!!!VToRec
   let inisam :: Prob ([Double])
       inisam = prims!!!Inisam
-  return ()
+  return (post, postgrad,vtorec,inisam)

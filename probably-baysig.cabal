@@ -34,7 +34,10 @@ Library
                         Math.Probably.PDF,
                         Math.Probably.NelderMead,
                         Math.Probably.BFGS,
-                        Math.Probably.MCMC
+                        Math.Probably.MCMC,
+                        Math.Probably.FoldingStats,
+                        Target.Prelude,
+                        Target.Regression
 
 --                        Math.Probably.MALA,
 --                        Math.Probably.HamMC
@@ -42,6 +45,14 @@ Library
                         
    Build-depends:       base, mersenne-random-pure64, 
                         binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, 
-                        statistics, vector, data-default, monad-par
+                        vector, data-default, monad-par
+                       , records                       >= 0.1.1.6    && < 0.2
+                       , type-functions                >= 0.2.0.3    && < 0.3
+                       , kinds                         >= 0.0.1.5    && < 0.1
+                       , statistics                    >= 0.10.4.1   && < 0.10.5
+                       , text                          >= 0.11.3.1   && < 0.12
+                       , array                         >= 0.4.0.1    && < 0.5
+                       , storable-tuple                >= 0.0.2      && < 0.1
+ 
 
    ghc-prof-options:    -auto-all

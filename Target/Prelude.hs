@@ -10,7 +10,6 @@ import qualified Math.Probably.Sampler as S
 --import qualified Math.Probably.MALA as MALA
 import qualified Math.Probably.NelderMead as NM
 import qualified Math.Probably.PDF as PDF
-import qualified Math.Probably.RandIO as RIO
 --import Math.Probably.BFGS
 import System.Random.Mersenne.Pure64
 import Math.Probably.FoldingStats
@@ -42,12 +41,9 @@ import System.IO.Unsafe
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 
-import System.IO.Silently (silence)
 import Data.STRef
 import Control.Monad.ST
 import qualified Data.Vector.Storable.Mutable as VSM
-
-import Baysig.Utils (onFst, onSnd)
 
 runIO :: IO a -> IO a
 runIO =   id -- silence
