@@ -557,6 +557,7 @@ instance R.Name Inisam where
 
 target = do
   ((fakedata::((R.X R.:& V R.::: (Double -> Double) R.:& S R.::: (Double -> Double)) (Id KindStar))))::((R.X R.:& V R.::: (Double -> Double) R.:& S R.::: (Double -> Double)) (Id KindStar)) <- sample (heston1::Prob ((R.X R.:& V R.::: (Double -> Double) R.:& S R.::: (Double -> Double)) (Id KindStar)))
+  --fail "done" 
   let prims :: ((R.X R.:& Inisam R.::: Prob ([Double]) R.:& VToRec R.::: ((Vector Double) -> ((R.X R.:& V R.::: (Double -> Double) R.:& V_0 R.::: Double R.:& Mu R.::: Double R.:& Eta R.::: Double R.:& Th R.::: Double R.:& K R.::: Double) (Id KindStar))) R.:& Postgrad R.::: ((Vector Double) -> ((Double,(Vector Double)))) R.:& Posterior R.::: (([Double]) -> Double)) (Id KindStar))
       prims = let {s::(Double -> Double) = (fakedata!!!S);
  posterior = runP1 (bindP (fmapP (\((_x)) -> exp _x) headP) (\(k) -> bindP (fmapP (\((_x)) -> exp _x) headP) (\(th) -> bindP (fmapP (\((_x)) -> exp _x) headP) (\(eta) -> bindP headP (\(mu) -> bindP (fmapP (\((_x)) -> exp _x) headP) (\(v_0) -> bindP (fmapP (\(s) -> v_0:(map (\(_x ) -> exp _x) s)) (takeP$((round (tmax/dt))-1))) (\(v__obsSig) -> bindP (returnP ((packL dt 0) v__obsSig)) (\(v) -> returnP (((gammaLogPdf 1 1) k)+(((gammaLogPdf 1 0.100) th)+(((gammaLogPdf 1 0.100) eta)+(((normalLogPdf 0 0.100) mu)+(((gammaLogPdf 1 0.100) v_0)+(((uniformLogPdf 0.000 2.000) (s 0))+(let {scanfun = \(i) -> \([]) -> \((v_last:(s_last:[]))) -> \((v_next:(s_next:[]))) -> let {t = (unround i)*dt;
@@ -593,7 +594,10 @@ target = do
  vToRec = \(theta) -> runP (toList theta) (bindP (fmapP (\((_x)) -> exp _x) headP) (\(k) -> bindP (fmapP (\((_x)) -> exp _x) headP) (\(th) -> bindP (fmapP (\((_x)) -> exp _x) headP) (\(eta) -> bindP headP (\(mu) -> bindP (fmapP (\((_x)) -> exp _x) headP) (\(v_0) -> bindP (fmapP (\(s) -> v_0:(map (\(_x ) -> exp _x) s)) (takeP$((round (tmax/dt))-1))) (\(v__obsSig) -> bindP (returnP ((packL dt 0) v__obsSig)) (\(v) -> returnP (R.X R.:& V R.:= (v) R.:& V_0 R.:= (v_0) R.:& Mu R.:= (mu) R.:& Eta R.:= (eta) R.:& Th R.:= (th) R.:& K R.:= (k))))))))));
  inisam = (gamma 1 1)>>=(\(k) -> (gamma 1 0.100)>>=(\(th) -> (gamma 1 0.100)>>=(\(eta) -> (normal 0 0.100)>>=(\(mu) -> (gamma 1 0.100)>>=(\(v_0) -> (uniform 0.000 2.000)>>=(\(s_0) -> (wiener dt tmax)>>=(\(w2) -> (wiener dt tmax)>>=(\(w1) -> let {v = solveODE (\v-> \((t::Double)) -> (k*(th-v))+((eta*(sqrt v))*((d dt w1) t))) tmax dt v_0;
 s = solveODE (\s-> \((t::Double)) -> (mu*s)+(((sqrt (v t))*s)*((d dt w2) t))) tmax dt s_0;
-} in return (concat (((log k):[]):(((log th):[]):(((log eta):[]):((mu:[]):(((log v_0):[]):((sigTail ((\((_x)) -> log _x).v)):[])))))))))))))));
+} in return (concat (((log k):[]):(((log th):[]):(((log eta):[]):((mu:[]):(((log v_0):[]):((map (\((_x)) -> log _x) (sigTail v)):[])))))))))))))));
+
+
+
  } in R.X R.:& Inisam R.:= (inisam) R.:& VToRec R.:= (vToRec) R.:& Postgrad R.:= (postgrad) R.:& Posterior R.:= (posterior)
   let post :: ((Vector Double) -> Double)
       post = (prims!!!Posterior) . VS.toList

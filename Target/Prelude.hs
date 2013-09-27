@@ -41,6 +41,7 @@ import System.IO.Unsafe
 import Unsafe.Coerce
 import Foreign.StablePtr
 import Foreign.Storable
+import Foreign.Storable.Tuple
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 
@@ -87,8 +88,7 @@ solveODEs f tmax dt y0 = y where
   yss = transpose $ scanl intf y0 is
 --   yss = L.toRows $ L.trans $ L.fromRows $ map (L.fromList) $ scanl intf y0 is
   intf ylast t = zipWith (+) ylast $ map (dt *) $ f ylast $ (*dt) . realToFrac $ t
-  y  = flip map yss $ \ys -> let yv = L.fromList ys in \t ->  let ix = round $ t/dt
-                                                              in  yv L.@> ix
+  y  = flip map yss $ \ys -> let yv = L.fromList ys in pack dt 0 yv
 
 decide :: (Real b,Floating b, V.Storable b, RealFrac b) => (b -> (((V.Vector b) -> (((S.Prob a) -> (((((V.Vector b) -> ((a -> b)))) -> (V.Vector b))))))))
 decide = \(tol) -> \((ini::V.Vector b)) -> \((prob::S.Prob a)) -> \((util::((V.Vector b) -> ((a -> b))))) -> (optimise tol ini) (\((vaction::V.Vector b)) -> expect (fmap (util vaction) prob))
@@ -287,8 +287,9 @@ data Radian  =
    |Timeseries ((Double -> Double))
    |Options ([(T.Text,T.Text)]) ([Radian])
 data ObservedSignal a = 
-   ObservedSignal Double Double (V.Vector Double)
+    ObservedSignal Double Double (V.Vector Double)
    |ObservedXYSignal (V.Vector ((Double,Double)))
+   deriving Show
 
 observeSig :: (Double -> Double) -> ObservedSignal Double
 observeSig  sig = unsafePerformIO $ do
@@ -298,6 +299,7 @@ observeSig  sig = unsafePerformIO $ do
 
 pack :: Double -> Double -> L.Vector Double -> (Double -> Double)
 pack dt t0 ys = unsafePerformIO $ do
+     putStrLn $ "packing.."
      let obs = ObservedSignal dt t0 ys
      ptr <- newStablePtr obs
      return $ \t -> if isNaN t
