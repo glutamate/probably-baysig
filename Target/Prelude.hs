@@ -38,12 +38,16 @@ import Control.Monad
 import Data.List
 import System.Exit
 import System.IO.Unsafe
+import Unsafe.Coerce
+import Foreign.StablePtr
+import Foreign.Storable
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 
 import Data.STRef
 import Control.Monad.ST
 import qualified Data.Vector.Storable.Mutable as VSM
+
 
 runIO :: IO a -> IO a
 runIO =   id -- silence
@@ -66,8 +70,9 @@ solveODE f tmax dt y0 = y where
   ts = V.enumFromStepN 0 dt (round $ tmax/dt)
   ys = V.scanl intf y0 ts
   intf ylast t = ylast + dt * f ylast t
-  y t = let ix = round $ t/dt
-        in  ys L.@> ix
+  y = pack dt 0 ys
+--  y t = let ix = round $ t/dt
+--        in  ys L.@> ix
 
 
 nats :: [Int]
@@ -177,8 +182,8 @@ instance FromCSVCell Double where
 instance FromCSVCell T.Text where
   fromCSVcell  = id
 
-printC :: Consolable a => String -> a -> IO () 
-printC s x = showC x >>= \s1-> putStrLn ( s++" => "++s1)
+printC :: Consolable a => T.Text -> a -> IO () 
+printC s x = showC x >>= \s1-> putStrLn (T.unpack s++" => "++s1)
 
 class Consolable a where
   showC :: a -> IO String
@@ -282,11 +287,29 @@ data Radian  =
    |Timeseries ((Double -> Double))
    |Options ([(T.Text,T.Text)]) ([Radian])
 data ObservedSignal a = 
-   ObservedSignal Double Double (V.Vector a)
+   ObservedSignal Double Double (V.Vector Double)
    |ObservedXYSignal (V.Vector ((Double,Double)))
 
-observeSig :: (a -> a) -> ObservedSignal a
-observeSig  sig = undefined
+observeSig :: (Double -> Double) -> ObservedSignal Double
+observeSig  sig = unsafePerformIO $ do
+    let ref = sig (0/0)
+    deRefStablePtr $ unsafeCoerce ref 
+      
+
+pack :: Double -> Double -> L.Vector Double -> (Double -> Double)
+pack dt t0 ys = unsafePerformIO $ do
+     let obs = ObservedSignal dt t0 ys
+     ptr <- newStablePtr obs
+     return $ \t -> if isNaN t
+                       then unsafeCoerce ptr
+                       else let ix = round $ (t-t0)/dt
+                            in  ys L.@> ix
+
+packL :: Double -> Double -> [Double] -> (Double->Double)
+packL dt t0 ys  = pack dt t0 (V.fromList ys)
+
+--packV dt t0 ys t = let ix = round $ (t-t0)/dt
+--                  in  ys V.! ix
 
 
 data Always  = 
@@ -368,15 +391,6 @@ runTests tsts = do
 sam1 seed (S.Samples xs) = (head xs, seed) 
 sam1 seed (S.Sampler f) = f seed
 
---pack :: Storable a => Double -> Double -> L.Vector a -> (Double -> a)
-pack dt t0 ys t = let ix = round $ (t-t0)/dt
-                  in  ys L.@> ix
-packL :: Double -> Double -> [Double] -> (Double->Double)
-packL dt t0 ys t = let ix = round $  (t-t0)/dt
-                   in  ys !! ix
-
-packV dt t0 ys t = let ix = round $ (t-t0)/dt
-                  in  ys V.! ix
 
 --myRound :: Real a => a-> Int
 
@@ -449,3 +463,18 @@ addMV vref ix x = do
   y <- VSM.read vref ix
   VSM.write vref ix (x+y)
 
+
+showReal :: Double -> T.Text
+showReal = T.pack . show
+
+(*%) :: Double -> L.Matrix Double -> L.Matrix Double
+(*%) = L.scale
+
+transL :: [[a]] -> [[a]]
+transL = transpose
+
+unsafeFreeze = V.unsafeFreeze
+
+vcons = V.cons 
+slice = V.slice -- FIXME: are we sure this uses inicies correctly?
+vmap = V.map

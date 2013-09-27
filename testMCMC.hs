@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, BangPatterns, ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes, BangPatterns, ScopedTypeVariables, OverloadedStrings #-}
 
 module Main where
 
@@ -20,7 +20,7 @@ main = do
   let rec = v2rec iniv
   chain <- sampleIO $ runChain inisam posterior postgrad 1 100 (hmc 100)
 --  chain <- sampleIO $ runChain inisam posterior postgrad 1 100 rwm
-  Target.Prelude.printC "initial" rec
+  Target.Prelude.printC  "initial" rec
   Target.Prelude.printC "pars" $ fmap v2rec chain
   return ()
 
