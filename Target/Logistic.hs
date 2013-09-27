@@ -525,12 +525,12 @@ target = do
  final0_iniret = map snd final0_ret;
  } in return (concat ((offset:[]):(((0-(log ((1/((slope0-(-10))/(10.000-(-10))))-1))):[]):(((0-(log ((1/((slope1-(-10))/(10.000-(-10))))-1))):[]):(((0-(log ((1/((slope2-(-10))/(10.000-(-10))))-1))):[]):(((0-(log ((1/((slope3-(-10))/(10.000-(-10))))-1))):[]):((concat final0_iniret):[])))))))))))));
  } in R.X R.:& Inisam R.:= (inisam) R.:& VToRec R.:= (vToRec) R.:& Postgrad R.:= (postgrad) R.:& Posterior R.:= (posterior)
-  let post :: (([Double]) -> Double)
-      post = prims!!!Posterior
+  let post :: ((Vector Double) -> Double)
+      post = (prims!!!Posterior) . VS.toList
   let postgrad :: ((Vector Double) -> ((Double,(Vector Double))))
       postgrad = prims!!!Postgrad
   let vtorec :: ((Vector Double) -> ((R.X R.:& Slope3 R.::: Double R.:& Slope2 R.::: Double R.:& Slope1 R.::: Double R.:& Slope0 R.::: Double R.:& Offset R.::: Double) (Id KindStar)))
       vtorec = prims!!!VToRec
-  let inisam :: Prob ([Double])
-      inisam = prims!!!Inisam
+  let inisam :: Prob (Vector Double)
+      inisam = fmap (VS.fromList) $ prims!!!Inisam
   return (post, postgrad,vtorec,inisam)

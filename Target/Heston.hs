@@ -555,7 +555,7 @@ data Inisam = Inisam deriving Show
 instance R.Name Inisam where
    name = Inisam
 
-main = do
+target = do
   ((fakedata::((R.X R.:& V R.::: (Double -> Double) R.:& S R.::: (Double -> Double)) (Id KindStar))))::((R.X R.:& V R.::: (Double -> Double) R.:& S R.::: (Double -> Double)) (Id KindStar)) <- sample (heston1::Prob ((R.X R.:& V R.::: (Double -> Double) R.:& S R.::: (Double -> Double)) (Id KindStar)))
   let prims :: ((R.X R.:& Inisam R.::: Prob ([Double]) R.:& VToRec R.::: ((Vector Double) -> ((R.X R.:& V R.::: (Double -> Double) R.:& V_0 R.::: Double R.:& Mu R.::: Double R.:& Eta R.::: Double R.:& Th R.::: Double R.:& K R.::: Double) (Id KindStar))) R.:& Postgrad R.::: ((Vector Double) -> ((Double,(Vector Double)))) R.:& Posterior R.::: (([Double]) -> Double)) (Id KindStar))
       prims = let {s::(Double -> Double) = (fakedata!!!S);
@@ -595,12 +595,12 @@ main = do
 s = solveODE (\s-> \((t::Double)) -> (mu*s)+(((sqrt (v t))*s)*((d dt w2) t))) tmax dt s_0;
 } in return (concat (((log k):[]):(((log th):[]):(((log eta):[]):((mu:[]):(((log v_0):[]):((sigTail ((\((_x)) -> log _x).v)):[])))))))))))))));
  } in R.X R.:& Inisam R.:= (inisam) R.:& VToRec R.:= (vToRec) R.:& Postgrad R.:= (postgrad) R.:& Posterior R.:= (posterior)
-  let post :: (([Double]) -> Double)
-      post = prims!!!Posterior
+  let post :: ((Vector Double) -> Double)
+      post = (prims!!!Posterior) . VS.toList
   let postgrad :: ((Vector Double) -> ((Double,(Vector Double))))
       postgrad = prims!!!Postgrad
   let vtorec :: ((Vector Double) -> ((R.X R.:& V R.::: (Double -> Double) R.:& V_0 R.::: Double R.:& Mu R.::: Double R.:& Eta R.::: Double R.:& Th R.::: Double R.:& K R.::: Double) (Id KindStar)))
       vtorec = prims!!!VToRec
-  let inisam :: Prob ([Double])
-      inisam = prims!!!Inisam
+  let inisam :: Prob (Vector Double)
+      inisam = fmap (VS.fromList) $ prims!!!Inisam
   return (post, postgrad,vtorec,inisam)

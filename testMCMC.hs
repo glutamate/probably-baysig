@@ -11,6 +11,8 @@ import Strategy.RandomWalkMetropolis (rwm)
 import Strategy.Hamiltonian (hmc)
 
 import qualified Target.Regression
+import qualified Target.Heston
+import qualified Target.Logistic
 import qualified Target.Prelude
 
 
