@@ -39,6 +39,7 @@ Library
                         Target.Prelude,
                         Target.Regression,
                         Target.Logistic,
+                        Target.Heston,
                         Strategy.RandomWalkMetropolis,
                         Strategy.Hamiltonian
 --                        Math.Probably.MALA,
