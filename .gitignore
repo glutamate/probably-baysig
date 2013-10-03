@@ -4,3 +4,4 @@
 *.bak
 *.exe
 dist/*
+*swp
