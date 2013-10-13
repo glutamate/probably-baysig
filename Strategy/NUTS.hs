@@ -46,7 +46,7 @@ nutsTrans postGrad t e _ = do
             let accept = (fi n1 / fi n) > z2
 
                 t2 | accept    = t1
-                   | otherwise = t
+                   | otherwise = tm
 
                 n2 = n + n1
                 s2 = s1 && ((tpp `sub` tnn) `dot` rnn >= 0)
