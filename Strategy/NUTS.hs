@@ -6,6 +6,9 @@ import Math.Probably.Sampler
 import Math.Probably.MCMC
 import Numeric.LinearAlgebra
 
+type StateTree = 
+  (Parameters, Parameters, Parameters, Parameters, Parameters, Int, Bool)
+
 -- | The NUTS strategy.
 nuts :: Strategy Double
 nuts = GStrategy nutsTrans (const 0.1)
@@ -23,13 +26,11 @@ nutsTrans postGrad t e _ = do
 
   r0 <- fmap fromList $ normalManyUnit (dim t)
   z0 <- expDist 1  
-  let logu = auxilliaryTarget lTarget t r0 - z0
+  let logu = log (auxilliaryTarget lTarget t r0) - z0
 
-  let go (tn, tp, rn, rp, j, tm, n, s)
+  let go (tn, tp, rn, rp, tm, j, n, s)
         | s = do
-            z1 <- unit
-            let vj | z1 > 0.5  = 1
-                   | otherwise = -1
+            vj <- oneOf [-1, 1]
             z2 <- unit
 
             (tnn, rnn, tpp, rpp, t1, n1, s1) <-
@@ -43,23 +44,20 @@ nutsTrans postGrad t e _ = do
                   buildTree lTarget glTarget tp rp logu vj j e
                 return (tn, rn, tpp', rpp', t1', n1', s1')
 
-            let accept = (fi n1 / fi n) > z2
+            let accept = s1 && min 1 (fi n1 / fi n) > z2
+                n2     = n + n1
+                s2     = s1 && stopCriterion tnn tpp rnn rpp
+                j1     = succ j
+                t2     | accept    = t1
+                       | otherwise = tm
 
-                t2 | accept    = t1
-                   | otherwise = tm
-
-                n2 = n + n1
-                s2 = s1 && ((tpp `sub` tnn) `dot` rnn >= 0)
-                        && ((tpp `sub` tnn) `dot` rpp >= 0) 
-                j1 = succ j
-
-            go (tnn, rnn, tpp, rpp, j1, t2, n2, s2)
+            go (tnn, tpp, rnn, rpp, t2, j1, n2, s2)
 
         | otherwise = return ((tm, e), Nothing)
 
-  go (t, t, r0, r0, 0, t, 1, True)
+  go (t, t, r0, r0, t, 0, 1, True)
 
--- | Build a binary tree representing admissible states for NUTS.
+-- | Determine the candidate position / momentum states for a move.
 buildTree 
   :: (Parameters -> Double)
   -> (Parameters -> Parameters)
@@ -69,13 +67,12 @@ buildTree
   -> Int
   -> Int
   -> Double
-  -> Prob 
-       (Parameters, Parameters, Parameters, Parameters, Parameters, Int, Bool)
+  -> Prob StateTree
 buildTree lTarget glTarget t r logu v 0 e = do
-  let (t0, r0)  = leapfrog glTarget (t, r) (fromIntegral v * e)
-      auxTarget = auxilliaryTarget lTarget t0 r0
-      n         = indicate (logu < auxTarget)
-      stop      = logu - 1000 < auxTarget
+  let (t0, r0) = leapfrog glTarget (t, r) (fromIntegral v * e)
+      lJoint   = log $ auxilliaryTarget lTarget t0 r0
+      n        = indicate (logu < lJoint)
+      stop     = logu - 1000 < lJoint
   return (t0, r0, t0, r0, t0, n, stop)
 
 buildTree lTarget glTarget t r logu v j e = do
@@ -96,20 +93,26 @@ buildTree lTarget glTarget t r logu v j e = do
           buildTree lTarget glTarget tp rp logu v (pred j) e
         return (tn, rn, tpp', rpp', t1', n1', s1')
  
-    let p  = fromIntegral n1 / fromIntegral (n0 + n1)
-        n2 = n0 + n1
-        t2 | p > z     = t1
-           | otherwise = t0 
-        stop2 = stop1
-             && ((tpp `sub` tnn) `dot` rnn >= 0)
-             && ((tpp `sub` tnn) `dot` rpp >= 0)
+    let accept = (fi n1 / max (fi $ n0 + n1) 1) > z
+        n2     = n0 + n1
+        stop2  = stop0 && stop1 && stopCriterion tnn tpp rnn rpp
+        t2     | accept    = t1
+               | otherwise = t0 
 
     return (tnn, rnn, tpp, rpp, t2, n2, stop2)
   else return (tn, rn, tp, rp, t0, n0, stop0)
-  
+ 
+-- | When to stop doubling the candidate state tree.
+stopCriterion :: Parameters -> Parameters -> Parameters -> Parameters -> Bool
+stopCriterion tn tp rn rp = 
+       positionDifference `dot` rn >= 0
+    && positionDifference `dot` rp >= 0
+  where
+    positionDifference = tp `sub` tn
+
 -- | The acceptance ratio for a proposed move.
 acceptanceRatio
-  :: (Parameters -> Double)
+  :: PosteriorF
   -> Parameters
   -> Parameters
   -> Parameters
@@ -119,25 +122,8 @@ acceptanceRatio lTarget t0 t1 r0 r1 = auxilliaryTarget lTarget t1 r1
                                     / auxilliaryTarget lTarget t0 r0
 
 -- | Joint density over position & momentum.
-auxilliaryTarget :: (Parameters -> Double) -> Parameters -> Parameters -> Double
+auxilliaryTarget :: PosteriorF -> Parameters -> Parameters -> Double
 auxilliaryTarget lTarget t r = exp (lTarget t - 0.5 * r `dot` r)
-
--- | Alias for fromIntegral.
-fi :: (Integral a, Num b) => a -> b
-fi = fromIntegral
-
--- | The leapfrog integrator.
-leapfrogIntegrator 
-  :: Int 
-  -> (Parameters -> Parameters)
-  -> (Parameters, Parameters)
-  -> Double
-  -> (Parameters, Parameters)
-leapfrogIntegrator n glTarget particle e = go particle n
-  where 
-    go state ndisc 
-      | ndisc <= 0 = state
-      | otherwise  = go (leapfrog glTarget state e) (pred n)
 
 -- | A single leapfrog step.
 leapfrog 
@@ -168,4 +154,8 @@ adjustPosition e r t = t `add` scale e r
 indicate :: Integral a => Bool -> a
 indicate True  = 1
 indicate False = 0
+
+-- | Alias for fromIntegral.
+fi :: (Integral a, Num b) => a -> b
+fi = fromIntegral
 
