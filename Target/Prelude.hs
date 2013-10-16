@@ -26,7 +26,7 @@ import Data.TypeFun
 import qualified Data.Vector.Storable as V
 import qualified Data.Vector.Generic as VG
 
-import qualified Statistics.Math as SM
+import qualified Numeric.SpecFunctions as SM
 import Statistics.Test.KolmogorovSmirnov
 import qualified Data.Vector.Unboxed as UV
 import Control.Monad.Trans (lift)
@@ -236,6 +236,8 @@ instance (Consolable a, Consolable b) => Consolable (a,b) where
  showC (x,y) = do sx <- showC x 
                   sy <- showC y 
                   return $ "("++sx++","++sy++")"
+ showSamples xs = do sxs <- mapM showC xs
+                     return $ "oneOf" ++ show sxs
 
 
 instance Consolable (X (Id KindStar)) where
