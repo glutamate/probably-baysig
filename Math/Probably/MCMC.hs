@@ -66,6 +66,7 @@ runChain inisam posterior postgrad thinn nsamples strat = do
       VStrategy kernel _ 
          -> runChainV ini posterior thinn nsamples stuff0 Nothing kernel
    return $ Samples chain
+
 runChainG :: Parameters -> PostGradF -> Int -> Int -> a -> Maybe (PosteriorDensity, Gradient) -> GStrategyKernel a -> Prob [Parameters]
 runChainG x0 postgrad _    0     _      _    _ = return [] -- done
 runChainG x0 postgrad thin iters stuff0 mpg  gstrat  = do

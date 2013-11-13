@@ -1,13 +1,13 @@
------------------------------------------------------------------------------
 {- |
-This module defines the monad of sampling functions. See Park, Pfenning and Thrun:
-A probabilistic language based upon sampling functions, Principles of programming languages 2005
+This module defines the monad of sampling functions. See Park, Pfenning and
+Thrun: A probabilistic language based upon sampling functions, Principles of
+programming languages 2005
  
 Sampling functions allow the composition of both discrete and continuous 
 probability distributions. 
 
-The implementation and interface are similar to those in the random-fu, monte-carlo 
-and monad-mersenne-random packages.
+The implementation and interface are similar to those in the random-fu,
+monte-carlo and monad-mersenne-random packages.
 
 Example -- a biased coin:
 
@@ -46,10 +46,7 @@ import Data.Maybe
 import Data.Ord
 import Control.Spoon
 
---import Debug.Trace
-
 type Seed = PureMT
-
 
 data Prob a = Sampler {unSampler :: Seed -> (a, Seed) }
             | Samples [a]

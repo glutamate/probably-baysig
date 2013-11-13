@@ -10,8 +10,8 @@ type StateTree =
   (Parameters, Parameters, Parameters, Parameters, Parameters, Int, Bool)
 
 -- | The NUTS strategy.
-nuts :: Strategy Double
-nuts = GStrategy nutsTrans (const 0.1)
+nuts :: Double -> Strategy Double
+nuts e = GStrategy nutsTrans (const e)
 
 -- | NUTS transition kernel for step size e.
 nutsTrans 

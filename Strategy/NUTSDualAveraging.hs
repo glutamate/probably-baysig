@@ -26,8 +26,8 @@ data StepSizeParameters = StepSizeParameters {
   } deriving Show
 
 -- | The NUTS strategy with dual averaging.
--- nuts :: Strategy Double
--- nuts = GStrategy nutsTrans (const 0.1)
+-- nutsDualAveraging :: Strategy Double
+-- nutsDualAveraging = GStrategy nutsTrans (const 0.1)
 
 -- | Transition kernel for NUTS with dual-averaging.
 nutsTransDualAveraging
@@ -230,4 +230,15 @@ findReasonableEpsilon lTarget glTarget t0 = do
         | otherwise = e
 
   return $ go 10 1.0 t1 r1
+
+-- | Default DA parameters, given a base step size and burn in period.
+basicDualAveragingParameters :: Double -> Int -> DualAveragingParameters
+basicDualAveragingParameters step burnInPeriod = DualAveragingParameters {
+    mu      = log (10 * step)
+  , delta   = 0.5
+  , mAdapt  = burnInPeriod
+  , gamma0  = 0.05
+  , tau0    = 10
+  , kappa   = 0.75
+  }
 

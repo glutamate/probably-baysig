@@ -5,3 +5,5 @@
 *.exe
 dist/*
 *swp
+trace.dat
+Rplots.pdf
