@@ -1,24 +1,28 @@
 Name:                probably-baysig
-Version:             0.3
+Version:             0.4.0
 Synopsis:            Probability and Statistics
 Description:         Library for Probability and Statistics.
                      .
-		     'probably' contains definitions and functions for probabilistic and statistical
-                     inference.
+                     'probably' contains definitions and functions for
+                     probabilistic and statistical inference.
                      .
-                     * Math.Probably.Sampler defines the sampling function monad, as described by Sungwoo Park
-                       and implemented elsewhere (e.g. 'random-fu' and 'monte-carlo' packages)
+                     * Math.Probably.Sampler defines the sampling function
+                       monad, as described by Sungwoo Park and implemented
+                       elsewhere (e.g. 'random-fu' and 'monte-carlo' packages)
                      .
-                     * Math.Probably.PDF defines some common parametric log-probability density functions
+                     * Math.Probably.PDF defines some common parametric
+                       log-probability density functions
                      .
-                     * Math.Probably.FoldingStats defines statistics as folds that can be composed and calculated 
-                       independently of the container of the underlying data. 
+                     * Math.Probably.FoldingStats defines statistics as folds
+                       that can be composed and calculated independently of the
+                       container of the underlying data. 
                      .
-                     * Math.Probably.StochFun defines stochastic functions and Markov chains
+                     * Math.Probably.StochFun defines stochastic functions and
+                       Markov chains
                      .
-                     * Math.Probably.MCMC implements Markov Chain Monte Carlo, including importance,
-                      rejection and Metropolis-Hastings sampling
-      
+                     * Math.Probably.MCMC implements Markov Chain Monte Carlo,
+                       including importance, rejection and Metropolis-Hastings
+                       sampling
                      
 License:             GPL
 License-file:        LICENSE
@@ -28,53 +32,64 @@ build-type:          Simple
 Cabal-Version: 	     >= 1.8
 
 Library
-   ghc-options:         -O2
-   Exposed-modules:     Math.Probably.Sampler,
-                        Math.Probably.Student,
-                        Math.Probably.PDF,
-                        Math.Probably.NelderMead,
-                        Math.Probably.BFGS,
-                        Math.Probably.MCMC,
-                        Math.Probably.FoldingStats,
-                        Target.Prelude,
-                        Target.Regression,
-                        Target.Logistic,
-                        Target.Heston,
-                        Strategy.RandomWalkMetropolis,
-                        Strategy.Hamiltonian
---                        Math.Probably.MALA,
---                        Math.Probably.HamMC
+   ghc-options:       -O2
+   ghc-prof-options:  -auto-all
 
+   Exposed-modules:   Math.Probably.Sampler
+                    , Math.Probably.Student
+                    , Math.Probably.PDF
+                    , Math.Probably.NelderMead
+                    , Math.Probably.BFGS
+                    , Math.Probably.MCMC
+                    , Math.Probably.FoldingStats
+                    , Strategy.RandomWalkMetropolis
+                    , Strategy.Hamiltonian
+
+                    , Target.Prelude
+                    , Target.Regression
+                    , Target.Logistic
+                    , Target.Heston
                         
-   Build-depends:       base, mersenne-random-pure64, 
-                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, 
-                        vector, data-default, monad-par
-                       , records                       >= 0.1.1.6    && < 0.2
-                       , type-functions                >= 0.2.0.3    && < 0.3
-                       , kinds                         >= 0.0.1.5    && < 0.1
-                       , statistics                    >= 0.10.4.1   && < 0.10.5
-                       , math-functions                >= 0.1        && < 0.2
-                       , text                          >= 0.11.3.1   && < 0.12
-                       , array                         >= 0.4.0.1    && < 0.5
-                       , storable-tuple                >= 0.0.2      && < 0.1
- 
+   Build-depends:     base
+                    , binary
+                    , data-default
+                    , deepseq
+                    , hmatrix
+                    , mersenne-random-pure64
+                    , monad-par
+                    , mtl
+                    , spoon
+                    , statistics
+                    , vector
 
-   ghc-prof-options:    -auto-all
+                    , math-functions
+                    , records
+                    , type-functions
+                    , kinds
+                    , storable-tuple
+                    , array
+                    , text
 
 Executable testMCMC
    Main-Is:           testMCMC.hs
-   Build-depends:       base, probably-baysig
-   ghc-options:         -O2 
-   Build-depends:       base, mersenne-random-pure64, 
-                        binary, hmatrix>=0.11.0.0, mtl, spoon, deepseq, 
-                        vector, data-default, monad-par
-                       , records                       >= 0.1.1.6    && < 0.2
-                       , type-functions                >= 0.2.0.3    && < 0.3
-                       , kinds                         >= 0.0.1.5    && < 0.1
-                       , statistics                    >= 0.10.4.1   && < 0.10.5
-                       , math-functions                >= 0.1        && < 0.2
-                       , text                          >= 0.11.3.1   && < 0.12
-                       , array                         >= 0.4.0.1    && < 0.5
-                       , storable-tuple                >= 0.0.2      && < 0.1
+   ghc-options:       -O2 
 
+   Build-depends:     base
+                    , mersenne-random-pure64
+                    , binary
+                    , hmatrix
+                    , mtl
+                    , spoon
+                    , deepseq
+                    , vector
+                    , data-default
+                    , monad-par
+                    , statistics
 
+                    , math-functions
+                    , records
+                    , type-functions
+                    , kinds
+                    , storable-tuple
+                    , array
+                    , text
