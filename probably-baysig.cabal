@@ -70,8 +70,8 @@ Library
                     , array                   >= 0.5
                     , text                    >= 1.1
 
-Executable testMCMC
-   Main-Is:           testMCMC.hs
+Executable SanityCheck
+   Main-Is:           SanityCheck.hs
    ghc-options:       -O2 
 
    Build-depends:     base
