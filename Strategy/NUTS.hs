@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 
 module Strategy.NUTS where
 
