@@ -3,7 +3,7 @@
 # Simple script for plotting a test trace.
 
 require(ggplot2)
-system('runhaskell testMCMC.hs > trace.dat')
+system('cabal run > trace.dat')
 d = read.csv('trace.dat', header = F)
 
 quartz()
