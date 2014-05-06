@@ -37,21 +37,23 @@ Library
 
    Exposed-modules:   Math.Probably.Sampler
                     , Math.Probably.Student
+                    , Math.Probably.Types
                     , Math.Probably.PDF
                     , Math.Probably.NelderMead
                     , Math.Probably.BFGS
                     , Math.Probably.MCMC
                     , Math.Probably.FoldingStats
-                    , Strategy.RandomWalkMetropolis
-                    , Strategy.Hamiltonian
+                    -- , Strategy.RandomWalkMetropolis
+                    -- , Strategy.Hamiltonian
 
-                    , Target.Prelude
-                    , Target.Regression
-                    , Target.Logistic
-                    , Target.Heston
+                    -- , Target.Prelude
+                    -- , Target.Regression
+                    -- , Target.Logistic
+                    -- , Target.Heston
                         
    Build-depends:     base                    >= 4.6 && < 5
                     , binary                  >= 0.7.1.0
+                    , containers              >= 0.5.5.1
                     , data-default            >= 0.5.3
                     , deepseq                 >= 1.3.0.1
                     , hmatrix                 >= 0.15
@@ -74,22 +76,24 @@ Executable SanityCheck
    Main-Is:           SanityCheck.hs
    ghc-options:       -O2 
 
-   Build-depends:     base
-                    , mersenne-random-pure64
-                    , binary
-                    , hmatrix
-                    , mtl
-                    , spoon
-                    , deepseq
-                    , vector
-                    , data-default
-                    , monad-par
-                    , statistics
+   Build-depends:     base                    >= 4.6 && < 5
+                    , binary                  >= 0.7.1.0
+                    , containers              >= 0.5.5.1
+                    , data-default            >= 0.5.3
+                    , deepseq                 >= 1.3.0.1
+                    , hmatrix                 >= 0.15
+                    , mersenne-random-pure64  >= 0.2.0.3
+                    , monad-par               >= 0.3.4.2
+                    , mtl                     >= 2.1.2
+                    , spoon                   >= 0.3.1
+                    , statistics              >= 0.10.4.1
+                    , vector                  >= 0.10.0.1
 
-                    , math-functions
-                    , records
-                    , type-functions
-                    , kinds
-                    , storable-tuple
-                    , array
-                    , text
+                    , math-functions          >= 0.1
+                    , records                 >= 0.1
+                    , type-functions          >= 0.2
+                    , kinds                   >= 0.0
+                    , storable-tuple          >= 0.0
+                    , array                   >= 0.5
+                    , text                    >= 1.1
+
