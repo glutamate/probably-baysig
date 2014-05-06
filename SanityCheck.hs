@@ -15,13 +15,6 @@ import qualified Math.Probably.PDF as PDF
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Strategy.MetropolisHastings
--- import Strategy.RandomWalkMetropolis (rwm)
--- import Strategy.Hamiltonian (hmc)
--- import Strategy.NUTS (nuts)
--- import qualified Target.Regression
--- import qualified Target.Heston
--- import qualified Target.Logistic
--- import qualified Target.Prelude
 
 lRosenbrock :: V.Vector Double -> Double
 lRosenbrock xs =
@@ -92,12 +85,12 @@ sanityCheck f g inisam s = do
   seed <- getSeedIO
   let target = createTargetWithGradient f g
       chain  = Chain inisam target (f inisam) (Map.empty)
-      peel     = runProb seed $ trace 10000 s chain
-      zs       = head . map (runProb seed) $ peel
+      peel   = runProb seed $ trace 10000 s chain
+      zs     = head . map (runProb seed) $ peel
       printWithoutBrackets = putStrLn . filter (`notElem` "[]") . show
   mapM_ (printWithoutBrackets . V.toList) zs
 
 main :: IO ()
 main = let p0 = V.fromList [0.0, 0.0]
-       in  sanityCheck lRosenbrock glRosenbrock p0 (metropolisHastings Nothing)
+       in  sanityCheck lRosenbrock glRosenbrock p0 (metropolisHastings (Just 0.1))
 
