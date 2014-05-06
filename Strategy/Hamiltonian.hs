@@ -61,15 +61,6 @@ auxilliaryTarget lTarget q r = lTarget q - 0.5 * innerProduct r r
 innerProduct :: Vector Double -> Vector Double -> Double
 innerProduct xs ys = sumElements $ zipVectorWith (*) xs ys
 
-(.*) :: Double -> Vector Double -> Vector Double
-z .* xs = mapVector (* z) xs
-
-(.-) :: Vector Double -> Vector Double -> Vector Double
-xs .- ys = zipVectorWith (-) xs ys
-
-(.+) :: Vector Double -> Vector Double -> Vector Double
-xs .+ ys = zipVectorWith (+) xs ys
-
 nextState
   :: Double
   -> Target Double

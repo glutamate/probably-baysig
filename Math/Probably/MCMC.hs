@@ -1,8 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Probably.MCMC (
-    metropolisHastings
-  , hamiltonian
+    hamiltonian
+  , mala
+  , metropolisHastings
   , trace
   ) where
 
@@ -14,8 +15,9 @@ import Data.Maybe
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Numeric.LinearAlgebra
-import Strategy.MetropolisHastings
 import Strategy.Hamiltonian
+import Strategy.MALA
+import Strategy.MetropolisHastings
 
 interleave :: [Transition a] -> Transition a
 interleave = foldl1 (>>) 
@@ -32,20 +34,12 @@ frequency xs = lift (oneOf [1..tot]) >>= (`pick` xs) where
     | n <= k    = v
     | otherwise = pick (n - k) vs
 
-firstWithProb
-  :: Double
-  -> Transition a
-  -> Transition a
-  -> Transition a
+firstWithProb :: Double -> Transition a -> Transition a -> Transition a
 firstWithProb p t0 t1 = do
   s <- lift $ bernoulli p
   if s then t0 else t1
 
-trace
-  :: Int
-  -> Transition a
-  -> Chain a
-  -> Prob (Prob (Vector a))
+trace :: Int -> Transition a -> Chain a -> Prob (Prob (Vector a))
 trace n t o = do
   zs <- replicateM n t `evalStateT` o
   return $ Samples zs
