@@ -6,6 +6,7 @@ import qualified Data.Map as Map
 import Numeric.LinearAlgebra
 import Math.Probably.Sampler
 import Math.Probably.Types
+import Math.Probably.Utils
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 
@@ -51,10 +52,6 @@ getStandardDeviation Nothing store = sd where
 updateStandardDeviation :: Double -> Tunables -> Tunables
 updateStandardDeviation sd = Map.insert MH (TDouble sd) 
 
-lookupDefault d k m = case Map.lookup k m of
-  Nothing -> d
-  Just v ->  v
-
 metropolisHastings :: Maybe Double -> Transition Double
 metropolisHastings e = do
   Chain current target _ store <- get
@@ -65,5 +62,4 @@ metropolisHastings e = do
       newStore = updateStandardDeviation sd store
   put $ Chain next target (logObjective target next) newStore
   return next
-
 

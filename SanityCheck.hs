@@ -91,6 +91,7 @@ sanityCheck f g inisam s = do
   mapM_ (printWithoutBrackets . V.toList) zs
 
 main :: IO ()
-main = let p0 = V.fromList [0.0, 0.0]
-       in  sanityCheck lRosenbrock glRosenbrock p0 (metropolisHastings (Just 0.1))
+main =
+  let p0 = V.fromList [0.0, 0.0]
+  in  sanityCheck lRosenbrock glRosenbrock p0 (hamiltonian (Just 0.1) (Just 10))
 

@@ -1,58 +1,110 @@
-module Strategy.Hamiltonian where
+module Strategy.Hamiltonian (hamiltonian) where
 
-import Math.Probably.Sampler
-import Math.Probably.MCMC
-import Numeric.LinearAlgebra
+import Control.Applicative
 import Control.Monad
-import Data.Maybe
+import Control.Monad.State.Strict
+import Control.Monad.Trans
+import qualified Data.Map as Map
+import Math.Probably.Sampler
+import Math.Probably.Types
+import Math.Probably.Utils
+import Numeric.LinearAlgebra
 
+leapfrog
+  :: Target Double
+  -> Vector Double
+  -> Vector Double
+  -> Double
+  -> (Vector Double, Vector Double)
+leapfrog target q r e = (qf, rf) where 
+  rm       = adjustMomentum glTarget e q r
+  qf       = adjustPosition e rm q
+  rf       = adjustMomentum glTarget e qf rm
+  glTarget = handleGradient $ gradient target
 
-hmc l = GStrategy (hmcTrans l) hmcIni
+leapfrogIntegrator
+  :: Target Double
+  -> Vector Double
+  -> Vector Double
+  -> Double
+  -> Int
+  -> (Vector Double, Vector Double)
+leapfrogIntegrator target q0 r0 e = go q0 r0 where
+  go q r 0 = (q, r)
+  go q r n = let (q1, r1) = leapfrog target q r e
+             in  go q1 r1 (pred n)
 
-hmcTrans l postGrad current_q (epsMean,(i, iaccept)) mpigi = do
-   let dims = dim current_q
-       grad_u = negate . snd . postGrad
-       u = negate . fst . postGrad
-   current_p <- fmap fromList $ normalManyUnit dims
-   eps <- uniform (epsMean*0.8) (epsMean*1.2)
-   --the initial half momentum step 
+adjustMomentum
+  :: (Vector Double -> Vector Double)
+  -> Double
+  -> Vector Double
+  -> Vector Double
+  -> Vector Double
+adjustMomentum glTarget e q r = r .+ ((0.5 * e) .* glTarget q)
 
-   let p_half_step = current_p - scale (eps/2) (grad_u current_q)
+adjustPosition :: Double -> Vector Double -> Vector Double -> Vector Double
+adjustPosition e r q = q .+ (e .* r)
 
-   let step :: Int -> Vector Double -> Vector Double -> (Vector Double, Vector Double)
-       step n p q  -- note that my l is Radford Neal's L+1
-        | n == 0 = let qfinal = q + scale eps p -- only q not p update in last loop
-                       pfinal = p - scale (eps/2) (grad_u qfinal) -- half momentum step at end
-                   in (negate pfinal, -- negate momentum for symmetric proposal
-                       qfinal)
-        | otherwise =
-            let q1 = q + scale eps p
-                p1 = p - scale eps (grad_u q1)
-            in step (n-1) p1 q1
+acceptanceRatio
+  :: (t -> Double)
+  -> t
+  -> t
+  -> Vector Double
+  -> Vector Double
+  -> Double
+acceptanceRatio lTarget q0 q1 r0 r1 =
+  auxilliaryTarget lTarget q1 r1 - auxilliaryTarget lTarget q0 r0
 
-   let (propose_p, propose_q) = step l p_half_step current_q
-       current_U =  u current_q
-       current_K =  (current_p `dot` current_p) / 2
-       propose_U = u propose_q
-       propose_K =  (propose_p `dot` propose_p) / 2
-       ratio = exp $ current_U - propose_U + current_K - propose_K
-       tr = max 1.0 $ i
+auxilliaryTarget :: (t -> Double) -> t -> Vector Double -> Double
+auxilliaryTarget lTarget q r = lTarget q - 0.5 * innerProduct r r
 
-   u <- unit -- 0 to 1
-   let accept = u < ratio
+innerProduct :: Vector Double -> Vector Double -> Double
+innerProduct xs ys = sumElements $ zipVectorWith (*) xs ys
 
-   let epsMeanNext 
-         = if accept then (min 2 $ 1+k_hmc/tr)*epsMean
-                     else (max 0.5 $ 1-k_hmc/tr)**1.8*epsMean
-   return $ if accept
-               then ((propose_q, (epsMeanNext, (i+1, iaccept+1))), 
-                     Nothing) -- we can't be bothered to cache
-               else ((current_q, (epsMeanNext, (i+1, iaccept))), 
-                     Nothing) -- we can't be bothered to cache
+(.*) :: Double -> Vector Double -> Vector Double
+z .* xs = mapVector (* z) xs
 
+(.-) :: Vector Double -> Vector Double -> Vector Double
+xs .- ys = zipVectorWith (-) xs ys
 
+(.+) :: Vector Double -> Vector Double -> Vector Double
+xs .+ ys = zipVectorWith (+) xs ys
 
-k_hmc = 2
+nextState
+  :: Double
+  -> Target Double
+  -> Vector Double
+  -> Vector Double
+  -> Vector Double
+  -> Vector Double
+  -> Vector Double
+nextState z target q0 q1 r0 r1
+    | z < min 1 ratio = q1
+    | otherwise       = q0
+  where
+    ratio = exp $ acceptanceRatio (logObjective target) q0 q1 r0 r1
 
-hmcIni _ = (0.1,(1.0, 0.0))
+-- should match other patterns
+getParameters :: Maybe Double -> Maybe Int -> Tunables -> (Double, Int)
+getParameters (Just e) (Just l) _ = (e, l)
+getParameters _  _          store = (e, l) where
+  TPair (TDouble e, TInt l) =
+    lookupDefault (TPair (TDouble 0.05, TInt 20)) HMC store
+
+updateParameters :: Double -> Int -> Tunables -> Tunables
+updateParameters e l = Map.insert HMC (TPair (TDouble e, TInt l)) 
+
+hamiltonian :: Maybe Double -> Maybe Int -> Transition Double
+hamiltonian e l = do
+  Chain current target _ store <- get
+  let (stepSize, nDisc) = getParameters e l store
+      q0                = current
+  r0 <- fromList <$> replicateM (dim q0) (lift unormal)
+
+  zc <- lift unit
+  let (q, r)   = leapfrogIntegrator target q0 r0 stepSize nDisc
+      next     = nextState zc target q0 q r0 r
+      newStore = updateParameters stepSize nDisc store
+  put $ Chain next target (logObjective target next) newStore
+  return next
 

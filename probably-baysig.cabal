@@ -43,6 +43,7 @@ Library
                     , Math.Probably.BFGS
                     , Math.Probably.MCMC
                     , Math.Probably.FoldingStats
+                    , Math.Probably.Utils
                     -- , Strategy.RandomWalkMetropolis
                     -- , Strategy.Hamiltonian
 

@@ -1,6 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Math.Probably.MCMC where
+module Math.Probably.MCMC (
+    metropolisHastings
+  , hamiltonian
+  , trace
+  ) where
 
 import Control.Monad
 import Control.Monad.State.Strict
@@ -10,6 +14,8 @@ import Data.Maybe
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Numeric.LinearAlgebra
+import Strategy.MetropolisHastings
+import Strategy.Hamiltonian
 
 interleave :: [Transition a] -> Transition a
 interleave = foldl1 (>>) 
