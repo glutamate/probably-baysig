@@ -7,7 +7,7 @@ import Control.Monad.Trans
 import qualified Data.Map as Map
 import Math.Probably.Sampler
 import Math.Probably.Types
-import Math.Probably.Utils
+import Math.Probably.Utils hiding (leapfrog, adjustMomentum, adjustPosition, auxilliaryTarget)
 import Numeric.LinearAlgebra
 
 leapfrog
@@ -57,9 +57,6 @@ acceptanceRatio lTarget q0 q1 r0 r1 =
 
 auxilliaryTarget :: (t -> Double) -> t -> Vector Double -> Double
 auxilliaryTarget lTarget q r = lTarget q - 0.5 * innerProduct r r
-
-innerProduct :: Vector Double -> Vector Double -> Double
-innerProduct xs ys = sumElements $ zipVectorWith (*) xs ys
 
 nextState
   :: Double

@@ -5,6 +5,7 @@ module Math.Probably.MCMC (
   , mala
   , metropolisHastings
   , nuts
+  , nutsDualAveraging
   , slice
   , trace
   ) where
@@ -21,6 +22,7 @@ import Strategy.Hamiltonian
 import Strategy.MALA
 import Strategy.MetropolisHastings
 import Strategy.NUTS
+import Strategy.NUTSDualAveraging
 import Strategy.Slice
 
 interleave :: [Transition a] -> Transition a

@@ -10,7 +10,7 @@ import System.Random.Mersenne.Pure64
 
 type Seed = PureMT
 
-data Prob a = Sampler {unSampler :: Seed -> (a, Seed) }
+data Prob a = Sampler { unSampler :: Seed -> (a, Seed) }
             | Samples [a]
 
 instance Functor Prob where
@@ -52,7 +52,7 @@ data Chain a = Chain {
     parameterSpacePosition :: Vector a
   , objectiveFunction      :: Target a
   , objectiveValue         :: Double
-  , optionalInformation    :: Tunables
+  , tunables               :: Tunables
   }
 
 data Target a = Target {
@@ -79,6 +79,7 @@ data Tunable =
     TDouble Double
   | TInt Int
   | TPair (Tunable, Tunable)
+  | TDAParams DualAveragingParameters
   deriving (Eq, Show)
 
 data Algorithm =
@@ -87,5 +88,33 @@ data Algorithm =
   | MALA
   | HMC
   | NUTS
+  | NUTSDualAveraging
   deriving (Eq, Ord, Show)
+
+data DualAveragingParameters = DualAveragingParameters {
+    mAdapt    :: !Int
+  , delta     :: !Double
+  , mu        :: !Double
+  , gammaP    :: !Double
+  , tau0      :: !Double
+  , kappa     :: !Double
+  , daStep    :: !Double
+  , daStepAvg :: !Double
+  , daH       :: !Double
+  } deriving (Eq, Show)
+
+-- create initial by findReasonableEpsilon and then change this; this one in
+-- particular will have to be something that goes in the tunables store
+defaultDualAveragingParameters :: Double -> Int -> DualAveragingParameters
+defaultDualAveragingParameters step burnInPeriod = DualAveragingParameters {
+    mu        = log (10 * step)
+  , delta     = 0.5
+  , mAdapt    = burnInPeriod
+  , gammaP    = 0.05
+  , tau0      = 10
+  , kappa     = 0.75
+  , daStep    = step
+  , daStepAvg = step
+  , daH       = 0
+  }
 

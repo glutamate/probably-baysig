@@ -88,5 +88,5 @@ sanityCheck f g inisam s = do
 main :: IO ()
 main =
   let p0 = V.fromList [0.0, 0.0]
-  in  sanityCheck lRosenbrock glRosenbrock p0 nuts
+  in  sanityCheck lRosenbrock glRosenbrock p0 (nutsDualAveraging (Just 0.1))
 
