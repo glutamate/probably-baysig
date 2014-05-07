@@ -1,30 +1,19 @@
 -- | See Hoffman, Gelman (2011) The No U-Turn Sampler: Adaptively Setting Path
 --   Lengths in Hamiltonian Monte Carlo.
 
+{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 
 module Strategy.NUTSDualAveraging (nutsDualAveraging) where
 
 import Control.Monad.State.Strict
 import qualified Data.Map as Map
-import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Math.Probably.Utils
-
-newtype BuildTree = BuildTree { 
-    getBuildTree :: (Parameters, Parameters, Parameters, Parameters, Parameters, Int, Int)
-  }
-
--- useful for debugging
-instance Show BuildTree where
-  show (BuildTree (tm, rm, tp, rp, t', n, s)) = 
-       "\n" ++ "tm: " ++ show tm 
-    ++ "\n" ++ "tp: " ++ show tp
-    ++ "\n" ++ "t': " ++ show t'
-    ++ "\n" ++ "n : " ++ show n
-    ++ "\n" ++ "s : " ++ show s
 
 nutsDualAveraging :: Maybe Double -> Transition Double
 nutsDualAveraging maybeStep = do
@@ -111,9 +100,9 @@ stopCriterion tn tp rn rp =
 
 buildTreeDualAvg lTarget glTarget t r logu v 0 e t0 r0 = do
   let (t1, r1) = leapfrog glTarget (t, r) (v * e)
-      joint    = log $ auxilliaryTarget lTarget t1 r1
-      n        = indicate (logu < joint)
-      s        = indicate (logu - 1000 <  joint)
+      jointL   = log $ auxilliaryTarget lTarget t1 r1
+      n        = indicate (logu < jointL)
+      s        = indicate (logu - 1000 <  jointL)
       a        = min 1 (acceptanceRatio lTarget t0 t1 r0 r1)
   return (t1, r1, t1, r1, t1, n, s, a, 1)
       
@@ -148,6 +137,8 @@ buildTreeDualAvg lTarget glTarget t r logu v j e t0 r0 = do
     return (tnn, rnn, tpp, rpp, t3, n3, s3, a3, na3)
   else return (tn, rn, tp, rp, t1, n1, s1, a1, na1)
 
+findReasonableEpsilon
+  :: (Parameters -> Double) -> Gradient -> Parameters -> Prob Double
 findReasonableEpsilon lTarget glTarget t0 = do
   r0 <- V.replicateM (V.length t0) unormal
   let (t1, r1) = leapfrog glTarget (t0, r0) 1.0
@@ -161,6 +152,7 @@ findReasonableEpsilon lTarget glTarget t0 = do
 
   return $ go 10 1.0 t1 r1
 
+acceptanceRatio :: (t -> Double) -> t -> t -> Parameters -> Parameters -> Double
 acceptanceRatio lTarget t0 t1 r0 r1 = auxilliaryTarget lTarget t1 r1
                                     / auxilliaryTarget lTarget t0 r0
 
@@ -170,12 +162,15 @@ updateDaParams daParams = Map.insert NUTSDualAveraging (TDAParams daParams)
 getDaParams :: Maybe Double -> Chain Double -> Prob DualAveragingParameters
 getDaParams Nothing (Chain t target _ store) = do
   let existing = Map.lookup NUTSDualAveraging store
+      defaults = do
+        step <- findReasonableEpsilon (logObjective target)
+                  (handleGradient $ gradient target) t
+        return $ defaultDualAveragingParameters step 100
+
   daParams <- case existing of
     Just (TDAParams daps) -> return daps
-    Nothing -> do
-      step <- findReasonableEpsilon (logObjective target)
-                (handleGradient $ gradient target) t
-      return $ defaultDualAveragingParameters step 100
+    Just _  -> defaults
+    Nothing -> defaults
 
   return daParams
 
@@ -183,6 +178,7 @@ getDaParams (Just e) (Chain _ _ _ store) = do
   let existing = Map.lookup NUTSDualAveraging store
   daParams <- case existing of
     Just (TDAParams daps) -> return $ daps { daStep = e }
+    Just _  -> return $ defaultDualAveragingParameters e 100
     Nothing -> return $ defaultDualAveragingParameters e 100
   
   return daParams
