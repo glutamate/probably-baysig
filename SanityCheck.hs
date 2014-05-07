@@ -1,6 +1,3 @@
-{-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-
 -- | Quick sanity checks for Markov chains.
 
 module Main where
@@ -85,8 +82,11 @@ sanityCheck f g inisam s = do
       printWithoutBrackets = putStrLn . filter (`notElem` "[]") . show
   mapM_ (printWithoutBrackets . V.toList) zs
 
+sampleTransition = 
+  firstWithProb 0.9 (slice 1.0) (nutsDualAveraging Nothing)
+
 main :: IO ()
 main =
   let p0 = V.fromList [0.0, 0.0]
-  in  sanityCheck lRosenbrock glRosenbrock p0 (nutsDualAveraging (Just 0.1))
+  in  sanityCheck lRosenbrock glRosenbrock p0 sampleTransition
 

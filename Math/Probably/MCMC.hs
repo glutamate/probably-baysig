@@ -1,12 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Probably.MCMC (
+  -- * transtions
     hamiltonian
   , mala
   , metropolisHastings
   , nuts
   , nutsDualAveraging
   , slice
+  -- * misc
+  , firstWithProb
+  , frequency
+  , interleave
+  , oneOfRandomly
   , trace
   ) where
 
