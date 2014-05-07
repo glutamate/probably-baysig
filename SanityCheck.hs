@@ -1,20 +1,15 @@
-{-# LANGUAGE RankNTypes, ScopedTypeVariables, OverloadedStrings #-}
+{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 -- | Quick sanity checks for Markov chains.
 
 module Main where
 
-import Control.Applicative
-import Control.Arrow
-import Control.Monad
 import qualified Data.Map as Map
-import qualified Data.Text as T
 import qualified Data.Vector.Storable as V
 import Math.Probably.MCMC
-import qualified Math.Probably.PDF as PDF
 import Math.Probably.Sampler
 import Math.Probably.Types
-import Strategy.MetropolisHastings
 
 lRosenbrock :: V.Vector Double -> Double
 lRosenbrock xs =
@@ -52,7 +47,7 @@ glBnn xs =
   let [x, y] = V.toList xs
       dx = -0.5 * (2 * x * y * y + 2 * x - 8)
       dy = -0.5 * (2 * x * x * y + 2 * y - 8)
-  in  V.fromList [x, y]
+  in  V.fromList [dx, dy]
 
 lBeale :: V.Vector Double -> Double
 lBeale xs
@@ -84,7 +79,7 @@ sanityCheck
 sanityCheck f g inisam s = do
   seed <- getSeedIO
   let target = createTargetWithGradient f g
-      chain  = Chain inisam target (f inisam) (Map.empty)
+      chain  = Chain inisam target (f inisam) Map.empty
       peel   = runProb seed $ trace 10000 s chain
       zs     = head . map (runProb seed) $ peel
       printWithoutBrackets = putStrLn . filter (`notElem` "[]") . show
@@ -93,5 +88,5 @@ sanityCheck f g inisam s = do
 main :: IO ()
 main =
   let p0 = V.fromList [0.0, 0.0]
-  in  sanityCheck lRosenbrock glRosenbrock p0 (mala (Just 0.1))
+  in  sanityCheck lRosenbrock glRosenbrock p0 (slice 0.1)
 
