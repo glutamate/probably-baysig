@@ -4,6 +4,7 @@ module Math.Probably.MCMC (
     hamiltonian
   , mala
   , metropolisHastings
+  , nuts
   , slice
   , trace
   ) where
@@ -19,6 +20,7 @@ import Numeric.LinearAlgebra
 import Strategy.Hamiltonian
 import Strategy.MALA
 import Strategy.MetropolisHastings
+import Strategy.NUTS
 import Strategy.Slice
 
 interleave :: [Transition a] -> Transition a
