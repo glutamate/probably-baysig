@@ -46,13 +46,13 @@ primOneOf xs seed
          idx = floor $ (realToFrac u)*(realToFrac $ length xs )
      in (xs !! idx, nextSeed)
 
-type Transition a = StateT (Chain a) Prob (Vector a)
+type Transition t a = StateT (Chain t a) Prob (Vector a)
 
-data Chain a = Chain {
+data Chain t a = Chain {
     parameterSpacePosition :: Vector a
   , objectiveFunction      :: Target a
   , objectiveValue         :: Double
-  , tunables               :: Tunables
+  , tunables               :: t
   }
 
 data Target a = Target {
@@ -118,5 +118,20 @@ defaultDualAveragingParameters step burnInPeriod = DualAveragingParameters {
   , daH       = 0
   }
 
-ezMC :: (Chain a -> Prob (Chain a)) -> Transition a
+ezMC :: (Chain t a -> Prob (Chain t a)) -> Transition t a
 ezMC f = get >>= lift . f >>= put >> gets parameterSpacePosition
+
+polyInterleave :: Transition t1 a -> Transition t2 a -> Transition (t1,t2) a
+polyInterleave tr1 tr2 = do
+  Chain current0 target val0 (tun1, tun2) <- get 
+  let chain1 = Chain current0 target val0 tun1
+  
+  Chain current1 target1 val1 tun1next <- lift $ execStateT tr1 chain1
+
+  let chain2 = Chain current1 target1 val1 tun2
+
+  (ret, Chain current2 target2 val2 tun2next) <- lift $ runStateT tr2 chain2
+
+  put $ Chain current2 target2 val2 (tun1next, tun2next) 
+
+  return ret
