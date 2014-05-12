@@ -118,5 +118,5 @@ defaultDualAveragingParameters step burnInPeriod = DualAveragingParameters {
   , daH       = 0
   }
 
-ezMC :: (Chain Double -> Prob (Chain Double)) -> Transition Double
+ezMC :: (Chain a -> Prob (Chain a)) -> Transition a
 ezMC f = get >>= lift . f >>= put >> gets parameterSpacePosition
