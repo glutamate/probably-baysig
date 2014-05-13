@@ -44,8 +44,12 @@ Library
                     , Math.Probably.MCMC
                     , Math.Probably.FoldingStats
                     , Math.Probably.Utils
-                    -- , Strategy.RandomWalkMetropolis
-                    -- , Strategy.Hamiltonian
+                    , Strategy.Hamiltonian
+                    , Strategy.MALA
+                    , Strategy.MetropolisHastings
+                    , Strategy.NUTS
+                    , Strategy.NUTSDualAveraging
+                    , Strategy.Slice
 
                     -- , Target.Prelude
                     -- , Target.Regression
@@ -59,16 +63,12 @@ Library
                     , deepseq                 >= 1.3.0.1
                     , hmatrix                 >= 0.15
                     , mersenne-random-pure64  >= 0.2.0.3
-                    , monad-par               >= 0.3.4.2
                     , mtl                     >= 2.1.2
                     , spoon                   >= 0.3.1
                     , statistics              >= 0.10.4.1
                     , vector                  >= 0.10.0.1
 
                     , math-functions          >= 0.1
-                    , records                 >= 0.1
-                    , type-functions          >= 0.2
-                    , kinds                   >= 0.0
                     , storable-tuple          >= 0.0
                     , array                   >= 0.5
                     , text                    >= 1.1
@@ -84,16 +84,12 @@ Executable SanityCheck
                     , deepseq                 >= 1.3.0.1
                     , hmatrix                 >= 0.15
                     , mersenne-random-pure64  >= 0.2.0.3
-                    , monad-par               >= 0.3.4.2
                     , mtl                     >= 2.1.2
                     , spoon                   >= 0.3.1
                     , statistics              >= 0.10.4.1
                     , vector                  >= 0.10.0.1
 
                     , math-functions          >= 0.1
-                    , records                 >= 0.1
-                    , type-functions          >= 0.2
-                    , kinds                   >= 0.0
                     , storable-tuple          >= 0.0
                     , array                   >= 0.5
                     , text                    >= 1.1

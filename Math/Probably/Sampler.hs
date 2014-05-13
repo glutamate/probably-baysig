@@ -54,6 +54,14 @@ runProb pmt s@(Sampler sf)
      in x : runProb pmt' s
 runProb _ (Samples xs) = xs
 
+-- | given a seed, return an infinite list of draws from sampling function
+runProbOne :: Seed -> Prob a -> (a,Seed)
+runProbOne pmt s@(Sampler sf) 
+   = sf pmt
+runProbOne pmt (Samples xs) = primOneOf xs pmt
+
+
+
 -- | Get a seed
 getSeedIO :: IO Seed
 getSeedIO = do
