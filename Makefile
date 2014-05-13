@@ -1,5 +1,5 @@
 cibuild:
 	cabal sandbox init
-	cabal install
+	cabal install --force-reinstalls
 
 citest:
