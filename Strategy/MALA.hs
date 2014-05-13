@@ -27,6 +27,7 @@ perturb target position e = do
   zs <- fromList <$> replicateM (dim position) unormal
   return $ localMean target position e .+ (e .* zs)
 
+mala :: Maybe Double -> Transition Double
 mala e = do
   Chain current target _ store <- get
   let step = getStepSize e store
