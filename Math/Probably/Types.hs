@@ -46,14 +46,13 @@ primOneOf xs seed
          idx = floor $ (realToFrac u)*(realToFrac $ length xs )
      in (xs !! idx, nextSeed)
 
-type Transition t = StateT (Chain t) Prob Parameters
-
+type Transition t     = StateT (Chain t) Prob Parameters
 type DiscreteParams   = Vector Int
 type ContinuousParams = Vector Double
-type LogObjective = Parameters -> Double
-type Gradient     = ContinuousParams -> ContinuousParams
-type Parameters   = (DiscreteParams, ContinuousParams)
-type Particle     = (ContinuousParams, ContinuousParams)
+type LogObjective     = Parameters -> Double
+type Gradient         = ContinuousParams -> ContinuousParams
+type Parameters       = (DiscreteParams, ContinuousParams)
+type Particle         = (ContinuousParams, ContinuousParams)
 
 data Chain t = Chain {
     parameterSpacePosition :: Parameters
@@ -67,10 +66,13 @@ data Target = Target {
   , gradient     :: Maybe (ContinuousParams -> ContinuousParams)
   }
 
+createTargetWithGradient :: LogObjective -> Gradient -> Target
 createTargetWithGradient f g = Target f (Just g)
 
+createTargetWithoutGradient :: LogObjective -> Target
 createTargetWithoutGradient f = Target f Nothing
 
+handleGradient :: Maybe t -> t
 handleGradient Nothing  = error "handleGradient: no gradient provided"
 handleGradient (Just g) = g
 
@@ -99,20 +101,3 @@ defaultDualAveragingParameters step burnInPeriod = DualAveragingParameters {
   , daH       = 0
   }
 
-ezMC :: (Chain t -> Prob (Chain t)) -> Transition t
-ezMC f = get >>= lift . f >>= put >> gets parameterSpacePosition
-
-polyInterleave :: Transition t1 -> Transition t2 -> Transition (t1,t2)
-polyInterleave tr1 tr2 = do
-  Chain current0 target val0 (tun1, tun2) <- get 
-  let chain1 = Chain current0 target val0 tun1
-  
-  Chain current1 target1 val1 tun1next <- lift $ execStateT tr1 chain1
-
-  let chain2 = Chain current1 target1 val1 tun2
-
-  (ret, Chain current2 target2 val2 tun2next) <- lift $ runStateT tr2 chain2
-
-  put $ Chain current2 target2 val2 (tun1next, tun2next) 
-
-  return ret

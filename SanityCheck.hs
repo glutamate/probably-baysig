@@ -70,14 +70,14 @@ glBeale xs =
 sanityCheck f g inisam s = do
   seed <- getSeedIO
   let target = createTargetWithGradient f g
-      chain  = Chain inisam target (f inisam) Nothing
+      chain  = Chain inisam target (f inisam) 1.0
       peel   = runProb seed $ trace 5000 s chain
       zs     = head . map (runProb seed) $ peel
-      printWithoutBrackets = putStrLn . filter (`notElem` "fromList []()") . show
-  mapM_ printWithoutBrackets zs
+      printSansBrackets = putStrLn . filter (`notElem` "fromList []()") . show
+  mapM_ printSansBrackets zs
 
 main :: IO ()
 main =
   let p0 = (V.fromList [], V.fromList [0.0, 0.0])
-  in  sanityCheck lRosenbrock glRosenbrock p0 nutsDualAveraging 
+  in  sanityCheck lRosenbrock glRosenbrock p0 (continuousSlice Nothing) 
 

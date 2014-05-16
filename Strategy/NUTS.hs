@@ -1,3 +1,9 @@
+-- | See Hoffman, Gelman (2011) The No U-Turn Sampler: Adaptively Setting Path
+--   Lengths in Hamiltonian Monte Carlo.
+-- 
+--   This code pretty much follows the notation/structure as the algo in the
+--   paper.
+
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
@@ -99,5 +105,4 @@ stopCriterion tn tp rn rp =
     * indicate (positionDifference `innerProduct` rp >= 0)
   where
     positionDifference = tp .- tn
-
 

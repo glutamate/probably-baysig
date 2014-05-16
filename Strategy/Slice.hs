@@ -2,30 +2,51 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 
-module Strategy.Slice where
+module Strategy.Slice  where
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.ST
+import Data.Maybe
 import Data.Vector.Storable (Vector, Storable)
 import qualified Data.Vector.Storable as V
 import qualified Data.Vector.Storable.Mutable as V hiding (length)
 import Math.Probably.Sampler
 import Math.Probably.Types
 
-slice :: Double -> Transition Double
-slice e = do
-  Chain position target _ _ <- get
-  let n = V.length position
-  forM_ [0..n - 1] $ \j -> do
-    Chain q _ _ store <- get
-    height  <- liftM log $ lift $ uniform 0 (exp $ logObjective target q)
-    let bracket = findBracket (logObjective target) j e height q
-    next    <- lift $ rejection (logObjective target) j bracket height q
-    put $ Chain next target (logObjective target next) store
+continuousSlice :: Maybe Double -> Transition Double
+continuousSlice step = do
+  Chain (_, cs) target _ _ <- get
+  forM_ [0..V.length cs - 1] $ \j -> do
+    Chain (ds, q) _ val t <- get
+    let e       = fromMaybe t step
+        curried = curry (logObjective target) ds
+    height <- log <$> lift (uniform 0 $ exp val)
+
+    let bracket = findBracket curried j e height q
+    nq <- lift $ rejection curried j bracket height q
+
+    put $ Chain (ds, nq) target (logObjective target (ds, nq)) e
   gets parameterSpacePosition
 
-findBracket :: (Num b, Ord a, Storable b)
+discreteSlice :: Maybe Int -> Transition Int
+discreteSlice step = do
+  Chain (ds, _) target _ _ <- get
+  forM_ [0..V.length ds - 1] $ \j -> do
+    Chain (q, cs) _ val t <- get
+    let e       = fromMaybe t step
+        curried = (flip (curry (logObjective target))) cs
+    height <- log <$> lift (uniform 0 $ exp val)
+
+    let bracket = findBracket curried j e height q
+    nq <- lift $ rejectionDiscrete curried j bracket height q
+
+    put $ Chain (nq, cs) target (logObjective target (nq, cs)) e
+  gets parameterSpacePosition
+
+findBracket
+  :: (Ord a, Storable b, Num b)
   => (Vector b -> a)
   -> Int
   -> b
@@ -67,16 +88,37 @@ expandBracketLeft
 expandBracketLeft  = expandBracketBy (-)
 
 rejection
-  :: (Ord b, Storable a, Fractional a)
+  :: (Ord a, Storable t, Fractional t)
+  => (Vector t -> a)
+  -> Int
+  -> (t, t)
+  -> a
+  -> Vector t
+  -> Prob (Vector t)
+rejection f j bracket height = go where
+  go zs = do
+    u  <- uncurry uniform bracket
+    let cool = runST $ do
+          v <- V.thaw zs
+          V.unsafeWrite v j u
+          V.freeze v
+    if   f cool < height
+    then go cool
+    else return cool
+
+-- 'uniform' is currently specialized to Fractional types, so polymorphism
+-- doesn't fly without changing that.
+rejectionDiscrete
+  :: (Ord b, Storable a, Enum a)
   => (Vector a -> b)
   -> Int
   -> (a, a)
   -> b
   -> Vector a
   -> Prob (Vector a)
-rejection f j bracket height = go where
+rejectionDiscrete f j bracket height = go where
   go zs = do
-    u    <- uncurry uniform bracket
+    u  <- oneOf [(fst bracket)..(snd bracket)]
     let cool = runST $ do
           v <- V.thaw zs
           V.unsafeWrite v j u

@@ -1,12 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Probably.MCMC (
-    metropolis
-  , trace
-  , mala
+    continuousSlice
+  , discreteSlice
   , hamiltonian
+  , mala
+  , metropolis
   , nuts
   , nutsDualAveraging
+  , trace
   ) where
 
 import Control.Applicative
@@ -23,7 +25,7 @@ import Strategy.MALA
 import Strategy.Metropolis
 import Strategy.NUTS
 import Strategy.NUTSDualAveraging
--- import Strategy.Slice
+import Strategy.Slice
 
 -- interleave :: [Transition a] -> Transition a
 -- interleave = foldl1 (>>) 
@@ -47,4 +49,20 @@ import Strategy.NUTSDualAveraging
 
 trace :: Int -> Transition t -> Chain t -> Prob (Prob Parameters)
 trace n t o = Samples <$> replicateM n t `evalStateT` o
+
+ezMC :: (Chain t -> Prob (Chain t)) -> Transition t
+ezMC f = get >>= lift . f >>= put >> gets parameterSpacePosition
+
+polyInterleave :: Transition t1 -> Transition t2 -> Transition (t1,t2)
+polyInterleave tr1 tr2 = do
+  Chain current0 target val0 (tun1, tun2) <- get 
+  let chain1 = Chain current0 target val0 tun1
+  
+  Chain current1 target1 val1 tun1next <- lift $ execStateT tr1 chain1
+  let chain2 = Chain current1 target1 val1 tun2
+
+  (ret, Chain current2 target2 val2 tun2next) <- lift $ runStateT tr2 chain2
+  put $ Chain current2 target2 val2 (tun1next, tun2next) 
+
+  return ret
 
