@@ -51,6 +51,6 @@ metropolis e = do
   pcs <- lift $ perturb cs sd
   zc  <- lift unit
   let next = nextState target current (ds, pcs) sd zc
-  put $ Chain next target (logObjective target next) t
+  put $ Chain next target (logObjective target next) sd
   return next
 

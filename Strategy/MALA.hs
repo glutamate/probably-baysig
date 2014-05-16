@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.State.Strict
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Math.Probably.Utils
@@ -13,65 +14,61 @@ import Numeric.LinearAlgebra
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 
-localMean :: Target Double -> Vector Double -> Double -> Vector Double
+localMean :: Target -> Vector Double -> Double -> Vector Double
 localMean target position e = position .+ scaledGradient position where
   grad = handleGradient (gradient target)
   scaledGradient p = (0.5 * e * e) .* grad p
 
 perturb
-  :: Target Double
-  -> Vector Double
+  :: Target
+  -> ContinuousParams
   -> Double
-  -> Prob (Vector Double)
+  -> Prob ContinuousParams
 perturb target position e = do
   zs <- fromList <$> replicateM (dim position) unormal
   return $ localMean target position e .+ (e .* zs)
 
 mala :: Maybe Double -> Transition Double
 mala e = do
-  Chain current target _ store <- get
-  let step = getStepSize e store
-  proposal <- lift $ perturb target current step
-  zc       <- lift unit
+  Chain current@(ds, cs) target _ t <- get
+  let step = fromMaybe t e
+  pcs <- lift $ perturb target cs step
+  zc  <- lift unit
 
-  let cMean    = localMean target current step
-      pMean    = localMean target proposal step
-      next     = nextState target (current, cMean) (proposal, pMean) step zc
-      newStore = updateStepSize step store
+  let cMean = localMean target cs step
+      pMean = localMean target pcs step
+      next  = nextState target current cMean (ds, pcs) pMean step zc
 
-  put $ Chain next target (logObjective target next) newStore
+  put $ Chain next target (logObjective target next) step
   return next
 
-getStepSize :: Maybe Double -> Tunables -> Double
-getStepSize (Just step) _ = step
-getStepSize Nothing store = step where
-  (TDouble step) = lookupDefault (TDouble 1.0) MALA store
-
-updateStepSize :: Double -> Tunables -> Tunables
-updateStepSize step = Map.insert MALA (TDouble step) 
-
 nextState
-  :: Target Double
-  -> (Vector Double, Vector Double)
-  -> (Vector Double, Vector Double)
+  :: Target
+  -> Parameters
+  -> ContinuousParams
+  -> Parameters
+  -> ContinuousParams
   -> Double
   -> Double
-  -> Vector Double
-nextState target (current, cMean) (proposal, pMean) e z
-    | z < acceptProb = proposal
-    | otherwise      = current
+  -> Parameters
+nextState target current@(_, cs) cMean proposal@(_, pcs) pMean e z
+    | z < pAccent = proposal
+    | otherwise   = current
   where
-    ratio = acceptRatio target (current, cMean) (proposal, pMean) e 
-    acceptProb | isNaN ratio = 0
-               | otherwise   = ratio
+    ratio = acceptProb target current cMean proposal pMean e
+    pAccent | isNaN ratio = 0
+            | otherwise   = ratio
 
-acceptRatio
-  :: Target Double
-  -> (Vector Double, Vector Double)
-  -> (Vector Double, Vector Double)
+acceptProb
+  :: Target
+  -> Parameters
+  -> ContinuousParams
+  -> Parameters
+  -> ContinuousParams
   -> Double
   -> Double
-acceptRatio target (current, cMean) (proposal, pMean) e = exp . min 0 $
-    logObjective target proposal + log (sphereGauss current pMean e)
-  - logObjective target current  - log (sphereGauss proposal cMean e)
+acceptProb target current@(_, cs) cMean proposal@(_, pcs) pMean e =
+  exp . min 0 $
+      logObjective target proposal + log (sphereGauss cs pMean e)
+    - logObjective target current  - log (sphereGauss pcs cMean e)
 
