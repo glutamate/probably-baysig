@@ -5,13 +5,10 @@ import qualified Data.Map as Map
 import Data.Maybe
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
+import Math.Probably.Types
 import Numeric.LinearAlgebra
 import Statistics.Distribution
 import Statistics.Distribution.Normal
-
-type Parameters = Vector Double
-type Gradient   = Parameters -> Parameters
-type Particle   = (Parameters, Parameters)
 
 lookupDefault  :: Ord k => a -> k -> Map k a -> a
 lookupDefault d k m = fromMaybe d (Map.lookup k m)
@@ -37,16 +34,16 @@ leapfrog glTarget (t, r) e = (tf, rf) where
   tf = adjustPosition e rm t
   rf = adjustMomentum glTarget e tf rm
 
-adjustMomentum :: (t -> Parameters) -> Double -> t -> Parameters -> Parameters
+adjustMomentum :: (t -> Vector Double) -> Double -> t -> Vector Double -> Vector Double
 adjustMomentum glTarget e t r = r .+ ((e / 2) .* glTarget t)
 
-adjustPosition :: Double -> Parameters -> Parameters -> Parameters
+adjustPosition :: Double -> Vector Double -> Vector Double -> Vector Double
 adjustPosition e r t = t .+ (e .* r)
 
-auxilliaryTarget :: (t -> Double) -> t -> Parameters -> Double
+auxilliaryTarget :: (t -> Double) -> t -> Vector Double -> Double
 auxilliaryTarget lTarget t r = exp (lTarget t - 0.5 * innerProduct r r)
 
-innerProduct :: Parameters -> Parameters -> Double
+innerProduct :: Vector Double -> Vector Double -> Double
 innerProduct xs ys = V.sum $ V.zipWith (*) xs ys
 
 indicate :: Integral a => Bool -> a

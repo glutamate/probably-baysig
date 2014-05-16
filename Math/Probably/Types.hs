@@ -46,50 +46,33 @@ primOneOf xs seed
          idx = floor $ (realToFrac u)*(realToFrac $ length xs )
      in (xs !! idx, nextSeed)
 
-type Transition a = StateT (Chain a) Prob (Vector a)
+type Transition t = StateT (Chain t) Prob Parameters
 
-data Chain a = Chain {
-    parameterSpacePosition :: Vector a
-  , objectiveFunction      :: Target a
+type DiscreteParams   = Vector Int
+type ContinuousParams = Vector Double
+type LogObjective = Parameters -> Double
+type Gradient     = ContinuousParams -> ContinuousParams
+type Parameters   = (DiscreteParams, ContinuousParams)
+type Particle     = (ContinuousParams, ContinuousParams)
+
+data Chain t = Chain {
+    parameterSpacePosition :: Parameters
+  , objectiveFunction      :: Target
   , objectiveValue         :: Double
-  , tunables               :: Tunables
+  , tunables               :: t
   }
 
-data Target a = Target {
-    logObjective :: Vector a -> Double
-  , gradient     :: Maybe (Vector a -> Vector a)
+data Target = Target {
+    logObjective :: Parameters -> Double
+  , gradient     :: Maybe (ContinuousParams -> ContinuousParams)
   }
 
-createTargetWithGradient
-  :: (Vector a -> Double)
-  -> (Vector a -> Vector a)
-  -> Target a
 createTargetWithGradient f g = Target f (Just g)
 
-createTargetWithoutGradient :: (Vector a -> Double) -> Target a
 createTargetWithoutGradient f = Target f Nothing
 
-handleGradient :: Maybe t -> t
 handleGradient Nothing  = error "handleGradient: no gradient provided"
 handleGradient (Just g) = g
-
-type Tunables = Map Algorithm Tunable
-
-data Tunable = 
-    TDouble Double
-  | TInt Int
-  | TPair (Tunable, Tunable)
-  | TDAParams DualAveragingParameters
-  deriving (Eq, Show)
-
-data Algorithm =
-    MH
-  | Slice
-  | MALA
-  | HMC
-  | NUTS
-  | NUTSDualAveraging
-  deriving (Eq, Ord, Show)
 
 data DualAveragingParameters = DualAveragingParameters {
     mAdapt    :: !Int
@@ -103,8 +86,6 @@ data DualAveragingParameters = DualAveragingParameters {
   , daH       :: !Double
   } deriving (Eq, Show)
 
--- create initial by findReasonableEpsilon and then change this; this one in
--- particular will have to be something that goes in the tunables store
 defaultDualAveragingParameters :: Double -> Int -> DualAveragingParameters
 defaultDualAveragingParameters step burnInPeriod = DualAveragingParameters {
     mu        = log (10 * step)
@@ -118,5 +99,20 @@ defaultDualAveragingParameters step burnInPeriod = DualAveragingParameters {
   , daH       = 0
   }
 
-ezMC :: (Chain a -> Prob (Chain a)) -> Transition a
+ezMC :: (Chain t -> Prob (Chain t)) -> Transition t
 ezMC f = get >>= lift . f >>= put >> gets parameterSpacePosition
+
+polyInterleave :: Transition t1 -> Transition t2 -> Transition (t1,t2)
+polyInterleave tr1 tr2 = do
+  Chain current0 target val0 (tun1, tun2) <- get 
+  let chain1 = Chain current0 target val0 tun1
+  
+  Chain current1 target1 val1 tun1next <- lift $ execStateT tr1 chain1
+
+  let chain2 = Chain current1 target1 val1 tun2
+
+  (ret, Chain current2 target2 val2 tun2next) <- lift $ runStateT tr2 chain2
+
+  put $ Chain current2 target2 val2 (tun1next, tun2next) 
+
+  return ret
