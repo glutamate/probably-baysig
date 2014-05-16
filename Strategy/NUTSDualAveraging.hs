@@ -12,22 +12,21 @@
 module Strategy.NUTSDualAveraging (nutsDualAveraging) where
 
 import Control.Monad.State.Strict
-import qualified Data.Map as Map
 import qualified Data.Vector.Storable as V
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Math.Probably.Utils
 
-nutsDualAveraging :: Maybe Double -> Transition Double
-nutsDualAveraging maybeStep = do
-  c@(Chain t target _ store) <- get
+nutsDualAveraging :: Transition (Maybe DualAveragingParameters)
+nutsDualAveraging = do
+  c@(Chain (ds, t) target _ tune) <- get
   r0 <- V.replicateM (V.length t) (lift unormal)
   z0 <- lift $ expDist 1
-  let logu     = log (auxilliaryTarget lTarget t r0) - z0
-      lTarget  = logObjective target
+  let lTarget  = curry (logObjective target) ds
       glTarget = handleGradient $ gradient target
+      logu     = auxilliaryTarget lTarget (t, r0) - z0
 
-  daParams <- lift $ getDaParams maybeStep c
+  daParams <- lift $ getDaParams tune c
 
   let e = daStep daParams
 
@@ -58,7 +57,7 @@ nutsDualAveraging maybeStep = do
             go (tnn, tpp, rnn, rpp, t2, j1, n2, s2, a1, na1)
 
         | otherwise = do 
-            put $ Chain tm target (lTarget tm) store
+            put $ Chain (ds, tm) target (lTarget tm) (Just daParams)
             return (a, na)
 
   (alpha, nalpha) <- go (t, t, r0, r0, t, 0, 1, 1, 0, 0)
@@ -77,24 +76,27 @@ nutsDualAveraging maybeStep = do
           logEm    = mu daParams - sqrt (fromIntegral (mAdapt daParams)) / gammaP daParams * hm
           logEbarM = (1 - zeta) * log (daStepAvg daParams) + zeta * logEm
 
-  let newDaParams = DualAveragingParameters {
-          mAdapt = max 0 (pred $ mAdapt daParams)
-        , delta  = delta daParams
-        , mu     = mu daParams
-        , gammaP = gammaP daParams
-        , tau0   = tau0 daParams
-        , kappa  = kappa daParams
-        , daStep = eNext
+  let newDaParams   = DualAveragingParameters {
+          mAdapt    = max 0 (pred $ mAdapt daParams)
+        , delta     = delta daParams
+        , mu        = mu daParams
+        , gammaP    = gammaP daParams
+        , tau0      = tau0 daParams
+        , kappa     = kappa daParams
+        , daStep    = eNext
         , daStepAvg = eAvgNext
         , daH       = hNext
         }
 
-      newStore = updateDaParams newDaParams store
-
-  modify (\s -> s { tunables = newStore })
+  modify (\s -> s { tunables = Just newDaParams })
   gets parameterSpacePosition
 
-stopCriterion :: Parameters -> Parameters -> Parameters -> Parameters -> Int
+stopCriterion
+  :: ContinuousParams
+  -> ContinuousParams
+  -> ContinuousParams
+  -> ContinuousParams
+  -> Int
 stopCriterion tn tp rn rp = 
       indicate (positionDifference `innerProduct` rn >= 0)
     * indicate (positionDifference `innerProduct` rp >= 0)
@@ -103,10 +105,10 @@ stopCriterion tn tp rn rp =
 
 buildTreeDualAvg lTarget glTarget t r logu v 0 e t0 r0 = do
   let (t1, r1) = leapfrog glTarget (t, r) (v * e)
-      jointL   = log $ auxilliaryTarget lTarget t1 r1
+      jointL   = auxilliaryTarget lTarget (t1, r1)
       n        = indicate (logu < jointL)
       s        = indicate (logu - 1000 <  jointL)
-      a        = min 1 (acceptanceRatio lTarget t0 t1 r0 r1)
+      a        = min 0 (logAcceptProb lTarget t0 t1 r0 r1)
   return (t1, r1, t1, r1, t1, n, s, a, 1)
       
 buildTreeDualAvg lTarget glTarget t r logu v j e t0 r0 = do
@@ -141,48 +143,34 @@ buildTreeDualAvg lTarget glTarget t r logu v j e t0 r0 = do
   else return (tn, rn, tp, rp, t1, n1, s1, a1, na1)
 
 findReasonableEpsilon
-  :: (Parameters -> Double) -> Gradient -> Parameters -> Prob Double
+  :: (ContinuousParams -> Double) -> Gradient -> ContinuousParams -> Prob Double
 findReasonableEpsilon lTarget glTarget t0 = do
   r0 <- V.replicateM (V.length t0) unormal
   let (t1, r1) = leapfrog glTarget (t0, r0) 1.0
-      a        = 2 * indicate (acceptanceRatio lTarget t0 t1 r0 r1 > 0.5) - 1
+      a        = 2 * indicate (exp (logAcceptProb lTarget t0 t1 r0 r1) > 0.5) - 1 :: Int
       go j e t r 
         | j <= 0 = e -- no need to shrink this excessively
-        | (acceptanceRatio lTarget t0 t r0 r) ^^ a > 2 ^^ (-a) = 
+        | (exp $ logAcceptProb lTarget t0 t r0 r) ^^ a > 2 ^^ (-a) = 
             let (tn, rn) = leapfrog glTarget (t, r) e
             in  go (pred j) (2 ^^ a * e) tn rn 
         | otherwise = e
 
   return $ go 10 1.0 t1 r1
 
-acceptanceRatio :: (t -> Double) -> t -> t -> Parameters -> Parameters -> Double
-acceptanceRatio lTarget t0 t1 r0 r1 = auxilliaryTarget lTarget t1 r1
-                                    / auxilliaryTarget lTarget t0 r0
+logAcceptProb lTarget t0 t1 r0 r1 = auxilliaryTarget lTarget (t1, r1)
+                                    - auxilliaryTarget lTarget (t0, r0)
 
-updateDaParams :: DualAveragingParameters -> Tunables -> Tunables
-updateDaParams daParams = Map.insert NUTSDualAveraging (TDAParams daParams)
+getDaParams
+  :: Maybe DualAveragingParameters
+  -> Chain (Maybe DualAveragingParameters)
+  -> Prob DualAveragingParameters
+getDaParams Nothing (Chain (ds, t) target _ Nothing) = do
+  let lTarget  = curry (logObjective target) ds
+      glTarget = handleGradient $ gradient target
+  step <- findReasonableEpsilon lTarget glTarget t
+  return $ defaultDualAveragingParameters step 1000 -- Prob DAParams
 
-getDaParams :: Maybe Double -> Chain Double -> Prob DualAveragingParameters
-getDaParams Nothing (Chain t target _ store) = do
-  let existing = Map.lookup NUTSDualAveraging store
-      defaults = do
-        step <- findReasonableEpsilon (logObjective target)
-                  (handleGradient $ gradient target) t
-        return $ defaultDualAveragingParameters step 100
-
-  daParams <- case existing of
-    Just (TDAParams daps) -> return daps
-    Just _  -> defaults
-    Nothing -> defaults
-
-  return daParams
-
-getDaParams (Just e) (Chain _ _ _ store) = do
-  let existing = Map.lookup NUTSDualAveraging store
-  daParams <- case existing of
-    Just (TDAParams daps) -> return $ daps { daStep = e }
-    Just _  -> return $ defaultDualAveragingParameters e 100
-    Nothing -> return $ defaultDualAveragingParameters e 100
-  
-  return daParams
+getDaParams Nothing (Chain _ _ _ (Just daParams)) = return daParams
+getDaParams (Just daParams) (Chain _ _ _ Nothing) = return daParams
+getDaParams (Just _) (Chain _ _ _ (Just daParams)) = return daParams
 

@@ -1,6 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Math.Probably.MCMC (metropolis, trace, mala, hamiltonian, nuts) where
+module Math.Probably.MCMC (
+    metropolis
+  , trace
+  , mala
+  , hamiltonian
+  , nuts
+  , nutsDualAveraging
+  ) where
 
 import Control.Applicative
 import Control.Monad
@@ -15,7 +22,7 @@ import Strategy.Hamiltonian
 import Strategy.MALA
 import Strategy.Metropolis
 import Strategy.NUTS
--- import Strategy.NUTSDualAveraging
+import Strategy.NUTSDualAveraging
 -- import Strategy.Slice
 
 -- interleave :: [Transition a] -> Transition a
