@@ -28,20 +28,22 @@ xs .- ys = zipVectorWith (-) xs ys
 (.+) :: Vector Double -> Vector Double -> Vector Double
 xs .+ ys = zipVectorWith (+) xs ys
 
-leapfrog :: Gradient -> Particle -> Double -> Particle
-leapfrog glTarget (t, r) e = (tf, rf) where 
-  rm = adjustMomentum glTarget e t r
-  tf = adjustPosition e rm t
-  rf = adjustMomentum glTarget e tf rm
+leapfrog :: Target -> Particle -> Double -> Particle
+leapfrog target (q, r) e = (qf, rf) where 
+  rm = adjustMomentum target e (q, r)
+  qf = adjustPosition e (rm, q)
+  rf = adjustMomentum target e (qf, rm)
 
-adjustMomentum :: (t -> Vector Double) -> Double -> t -> Vector Double -> Vector Double
-adjustMomentum glTarget e t r = r .+ ((e / 2) .* glTarget t)
+adjustMomentum :: Target -> Double -> Particle -> ContinuousParams
+adjustMomentum target e (t, r) = r .+ ((e / 2) .* glTarget t)
+  where glTarget = handleGradient $ gradient target
 
-adjustPosition :: Double -> Vector Double -> Vector Double -> Vector Double
-adjustPosition e r t = t .+ (e .* r)
+adjustPosition :: Double -> Particle -> ContinuousParams
+adjustPosition e (r, t) = t .+ (e .* r)
 
-auxilliaryTarget :: (t -> Double) -> t -> Vector Double -> Double
-auxilliaryTarget lTarget t r = exp (lTarget t - 0.5 * innerProduct r r)
+auxilliaryTarget :: (Vector Double -> Double) -> Particle -> Double
+auxilliaryTarget lTarget (t, r) =
+  lTarget t - 0.5 * innerProduct r r
 
 innerProduct :: Vector Double -> Vector Double -> Double
 innerProduct xs ys = V.sum $ V.zipWith (*) xs ys
