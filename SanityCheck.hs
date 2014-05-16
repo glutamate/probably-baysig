@@ -70,7 +70,7 @@ glBeale xs =
 sanityCheck f g inisam s = do
   seed <- getSeedIO
   let target = createTargetWithGradient f g
-      chain  = Chain inisam target (f inisam) (0.1, 20)
+      chain  = Chain inisam target (f inisam) 0.1
       peel   = runProb seed $ trace 5000 s chain
       zs     = head . map (runProb seed) $ peel
       printWithoutBrackets = putStrLn . filter (`notElem` "fromList []()") . show
@@ -79,5 +79,5 @@ sanityCheck f g inisam s = do
 main :: IO ()
 main =
   let p0 = (V.fromList [], V.fromList [0.0, 0.0])
-  in  sanityCheck lRosenbrock glRosenbrock p0 (hamiltonian Nothing Nothing)
+  in  sanityCheck lRosenbrock glRosenbrock p0 (nuts Nothing)
 

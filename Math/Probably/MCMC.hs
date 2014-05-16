@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Math.Probably.MCMC (metropolis, trace, mala, hamiltonian) where
+module Math.Probably.MCMC (metropolis, trace, mala, hamiltonian, nuts) where
 
 import Control.Applicative
 import Control.Monad
@@ -14,7 +14,7 @@ import Numeric.LinearAlgebra
 import Strategy.Hamiltonian
 import Strategy.MALA
 import Strategy.Metropolis
--- import Strategy.NUTS
+import Strategy.NUTS
 -- import Strategy.NUTSDualAveraging
 -- import Strategy.Slice
 

@@ -28,15 +28,14 @@ xs .- ys = zipVectorWith (-) xs ys
 (.+) :: Vector Double -> Vector Double -> Vector Double
 xs .+ ys = zipVectorWith (+) xs ys
 
-leapfrog :: Target -> Particle -> Double -> Particle
-leapfrog target (q, r) e = (qf, rf) where 
-  rm = adjustMomentum target e (q, r)
+leapfrog :: Gradient -> Particle -> Double -> Particle
+leapfrog glTarget (q, r) e = (qf, rf) where 
+  rm = adjustMomentum glTarget e (q, r)
   qf = adjustPosition e (rm, q)
-  rf = adjustMomentum target e (qf, rm)
+  rf = adjustMomentum glTarget e (qf, rm)
 
-adjustMomentum :: Target -> Double -> Particle -> ContinuousParams
-adjustMomentum target e (t, r) = r .+ ((e / 2) .* glTarget t)
-  where glTarget = handleGradient $ gradient target
+adjustMomentum :: Gradient -> Double -> Particle -> ContinuousParams
+adjustMomentum glTarget e (t, r) = r .+ ((e / 2) .* glTarget t)
 
 adjustPosition :: Double -> Particle -> ContinuousParams
 adjustPosition e (r, t) = t .+ (e .* r)

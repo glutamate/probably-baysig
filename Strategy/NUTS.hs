@@ -6,21 +6,21 @@
 module Strategy.NUTS (nuts) where
 
 import Control.Monad.State.Strict
-import qualified Data.Map as Map
+import Data.Maybe
 import qualified Data.Vector.Storable as V
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Math.Probably.Utils
 
-nuts :: Transition Double
-nuts = do
-    Chain t target _ store <- get
-    r0          <- V.replicateM (V.length t) (lift $ normal 0 1)
-    z0          <- lift $ expDist 1
-    let logu     = log (auxilliaryTarget lTarget t r0) - z0
-        lTarget  = logObjective target
+nuts :: Maybe Double -> Transition Double
+nuts step = do
+    Chain (ds, t) target _ tune <- get
+    r0 <- V.replicateM (V.length t) (lift $ normal 0 1)
+    z0 <- lift $ expDist 1
+    let lTarget  = curry (logObjective target) ds
         glTarget = handleGradient $ gradient target
-        e        = getStepSize Nothing store
+        logu     = auxilliaryTarget lTarget (t, r0) - z0
+        e        = fromMaybe tune step
 
     let go (tn, tp, rn, rp, tm, j, n, s)
           | s == 1 = do
@@ -49,14 +49,14 @@ nuts = do
               go (tnn, tpp, rnn, rpp, t2, j1, n2, s2)
 
           | otherwise = do
-              put $ Chain tm target (lTarget tm) (updateStepSize e store)
-              return tm
+              put $ Chain (ds, tm) target (lTarget tm) e
+              return (ds, tm)
 
     go (t, t, r0, r0, t, 0, 1, 1)
 
 buildTree lTarget glTarget t r logu v 0 e = do
   let (t0, r0) = leapfrog glTarget (t, r) (v * e)
-      jointL   = log $ auxilliaryTarget lTarget t0 r0
+      jointL   = auxilliaryTarget lTarget (t0, r0)
       n        = indicate (logu < jointL)
       s        = indicate (logu - 1000 < jointL)
   return (t0, r0, t0, r0, t0, n, s)
@@ -88,18 +88,16 @@ buildTree lTarget glTarget t r logu v j e = do
     return (tnn, rnn, tpp, rpp, t2, n2, s2)
   else return (tn, rn, tp, rp, t0, n0, s0)
 
-stopCriterion :: Parameters -> Parameters -> Parameters -> Parameters -> Int
+stopCriterion
+  :: ContinuousParams
+  -> ContinuousParams
+  -> ContinuousParams
+  -> ContinuousParams
+  -> Int
 stopCriterion tn tp rn rp = 
       indicate (positionDifference `innerProduct` rn >= 0)
     * indicate (positionDifference `innerProduct` rp >= 0)
   where
     positionDifference = tp .- tn
 
-getStepSize :: Maybe Double -> Tunables -> Double
-getStepSize (Just e) _    = e
-getStepSize Nothing store = e where
-  (TDouble e) = lookupDefault (TDouble 0.1) NUTS store
-
-updateStepSize :: Double -> Tunables -> Tunables
-updateStepSize e = Map.insert NUTS (TDouble e) 
 

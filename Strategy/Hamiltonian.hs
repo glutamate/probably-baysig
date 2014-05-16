@@ -12,14 +12,14 @@ import Math.Probably.Utils
 import Numeric.LinearAlgebra
 
 leapfrogIntegrator
-  :: Target
+  :: Gradient
   -> Particle
   -> Double
   -> Int
   -> Particle
-leapfrogIntegrator target (q0, r0) e = go q0 r0 where
+leapfrogIntegrator glTarget (q0, r0) e = go q0 r0 where
   go q r 0 = (q, r)
-  go q r n = let (q1, r1) = leapfrog target (q, r) e
+  go q r n = let (q1, r1) = leapfrog glTarget (q, r) e
              in  go q1 r1 (pred n)
 
 acceptProb
@@ -48,11 +48,12 @@ hamiltonian e l = do
   let stepSize = fromMaybe te e
       nDisc    = fromMaybe tl l
       lTarget  = curry (logObjective target) ds
+      glTarget = handleGradient $ gradient target
 
   r0 <- fromList <$> replicateM (dim q0) (lift unormal)
   zc <- lift unit
 
-  let (q, r) = leapfrogIntegrator target (q0, r0) stepSize nDisc
+  let (q, r) = leapfrogIntegrator glTarget (q0, r0) stepSize nDisc
       next   = (ds, nextState lTarget (q0, q) (r0, r) zc)
 
   put $ Chain next target (logObjective target next) (stepSize, nDisc)
