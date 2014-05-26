@@ -80,6 +80,7 @@ Library
      , text                    >= 1.1
 
 Test-suite SanityCheck
+   type:              exitcode-stdio-1.0
    Main-Is:           SanityCheck.hs
    ghc-options:       -O2 
    hs-source-dirs:    src, test

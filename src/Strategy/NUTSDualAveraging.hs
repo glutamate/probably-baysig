@@ -4,9 +4,6 @@
 --   This code pretty much follows the notation/structure as the algo in the
 --   paper.
 
--- NOTE this needs to be tested a bit more stringently; lot of stuff changed
---      while porting it over.
-
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
@@ -166,11 +163,7 @@ findReasonableEpsilon lTarget glTarget t0 = do
 
   return $ go 10 1.0 t1 r1
 
-logAcceptProb
-  :: (ContinuousParams -> Double)
-  -> Particle
-  -> Particle
-  -> Double
+logAcceptProb :: (ContinuousParams -> Double) -> Particle -> Particle -> Double
 logAcceptProb lTarget (t0, t1) (r0, r1) =
     auxilliaryTarget lTarget (t1, r1)
   - auxilliaryTarget lTarget (t0, r0)

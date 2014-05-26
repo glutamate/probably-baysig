@@ -1,18 +1,34 @@
 
+-- | Metropolis-adjusted Langevin diffusion.  See, ex: Girolami and Calderhead
+--   (2011):
+--
+-- http://onlinelibrary.wiley.com/doi/10.1111/j.1467-9868.2010.00765.x/abstract
+
 module Strategy.MALA (mala) where
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Data.Maybe
 import Math.Probably.Sampler
 import Math.Probably.Types
 import Math.Probably.Utils
 import Numeric.LinearAlgebra
-import Statistics.Distribution
-import Statistics.Distribution.Normal
+
+-- | The MALA transition operator.  Takes a step size tunable parameter.
+mala :: Maybe Double -> Transition Double
+mala e = do
+  Chain current@(ds, cs) target _ t <- get
+  let stepSize = fromMaybe t e
+  pcs <- lift $ perturb target cs stepSize
+  zc  <- lift unit
+
+  let cMean = localMean target cs stepSize
+      pMean = localMean target pcs stepSize
+      next  = nextState target current cMean (ds, pcs) pMean stepSize zc
+
+  put $ Chain next target (logObjective target next) stepSize
+  return next
 
 localMean :: Target -> Vector Double -> Double -> Vector Double
 localMean target position e = position .+ scaledGradient position where
@@ -28,20 +44,6 @@ perturb target position e = do
   zs <- fromList <$> replicateM (dim position) unormal
   return $ localMean target position e .+ (e .* zs)
 
-mala :: Maybe Double -> Transition Double
-mala e = do
-  Chain current@(ds, cs) target _ t <- get
-  let step = fromMaybe t e
-  pcs <- lift $ perturb target cs step
-  zc  <- lift unit
-
-  let cMean = localMean target cs step
-      pMean = localMean target pcs step
-      next  = nextState target current cMean (ds, pcs) pMean step zc
-
-  put $ Chain next target (logObjective target next) step
-  return next
-
 nextState
   :: Target
   -> Parameters
@@ -51,7 +53,7 @@ nextState
   -> Double
   -> Double
   -> Parameters
-nextState target current@(_, cs) cMean proposal@(_, pcs) pMean e z
+nextState target current cMean proposal pMean e z
     | z < pAccent = proposal
     | otherwise   = current
   where

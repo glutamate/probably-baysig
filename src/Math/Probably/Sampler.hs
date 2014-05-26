@@ -1,7 +1,9 @@
 {- |
-This module defines the monad of sampling functions. See Park, Pfenning and
-Thrun: A probabilistic language based upon sampling functions, Principles of
-programming languages 2005
+
+This module defines the monad of sampling functions. See
+
+Park, Pfenning and Thrun (2005) A probabilistic language based upon sampling
+functions, Principles of Programming Languages 2005
  
 Sampling functions allow the composition of both discrete and continuous 
 probability distributions. 
@@ -31,6 +33,7 @@ main = do
 
 -}
 
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE BangPatterns, ScopedTypeVariables #-}
 
 module Math.Probably.Sampler where

@@ -2,6 +2,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 
+-- | Continuous and discrete slice sampling.  See ex: Neal (2003)
+--
+--   http://projecteuclid.org/euclid.aos/1056562461
+
 module Strategy.Slice  where
 
 import Control.Applicative
