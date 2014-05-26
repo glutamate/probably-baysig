@@ -1,28 +1,33 @@
 Name:                probably-baysig
-Version:             0.4.0
+Version:             0.5.0
 Synopsis:            Probability and Statistics
-Description:         Library for Probability and Statistics.
-                     .
-                     'probably' contains definitions and functions for
-                     probabilistic and statistical inference.
-                     .
-                     * Math.Probably.Sampler defines the sampling function
-                       monad, as described by Sungwoo Park and implemented
-                       elsewhere (e.g. 'random-fu' and 'monte-carlo' packages)
-                     .
-                     * Math.Probably.PDF defines some common parametric
-                       log-probability density functions
-                     .
-                     * Math.Probably.FoldingStats defines statistics as folds
-                       that can be composed and calculated independently of the
-                       container of the underlying data. 
-                     .
-                     * Math.Probably.StochFun defines stochastic functions and
-                       Markov chains
-                     .
-                     * Math.Probably.MCMC implements Markov Chain Monte Carlo,
-                       including importance, rejection and Metropolis-Hastings
-                       sampling
+Description:
+
+  Library for Probability and Statistics.
+  .
+  'probably-baysig' contains definitions and functions for
+  probabilistic and statistical inference.
+  .
+  * Math.Probably.Sampler defines the sampling function
+    monad, as described by Sungwoo Park and implemented
+    elsewhere (e.g. 'random-fu' and 'monte-carlo' packages)
+  .
+  * Math.Probably.PDF defines some common parametric
+    log-probability density functions
+  .
+  * Math.Probably.FoldingStats defines statistics as folds
+    that can be composed and calculated independently of the
+    container of the underlying data. 
+  .
+  * Strategy.* implements various transition operators for
+    Markov Chain Monte Carlo, including Metropolis-Hastings,
+    Hamiltonian Monte Carlo, NUTS, and continuous/discrete
+    slice samplers.
+  .
+  * Math.Probably.MCMC implements functions and combinators
+    for running Markov chains and interleaving transition
+    operators.
+  .
                      
 License:             GPL
 License-file:        LICENSE
@@ -32,65 +37,67 @@ build-type:          Simple
 Cabal-Version: 	     >= 1.8
 
 Library
-   ghc-options:       -O2
+   ghc-options:       -O2 -Wall
    ghc-prof-options:  -auto-all
+   hs-source-dirs:    src
 
-   Exposed-modules:   Math.Probably.Sampler
-                    , Math.Probably.Student
-                    , Math.Probably.Types
-                    , Math.Probably.PDF
-                    , Math.Probably.NelderMead
-                    , Math.Probably.BFGS
-                    , Math.Probably.MCMC
-                    , Math.Probably.FoldingStats
-                    , Math.Probably.Utils
-                    --, Strategy.Hamiltonian
-                    , Strategy.MALA
-                    , Strategy.Metropolis
-                    --, Strategy.NUTS
-                    --, Strategy.NUTSDualAveraging
-                    --, Strategy.Slice
-
-                    -- , Target.Prelude
-                    -- , Target.Regression
-                    -- , Target.Logistic
-                    -- , Target.Heston
+   Exposed-modules:
+       Math.Probably.Sampler
+     , Math.Probably.Student
+     , Math.Probably.Types
+     , Math.Probably.PDF
+     , Math.Probably.NelderMead
+     , Math.Probably.BFGS
+     , Math.Probably.MCMC
+     , Math.Probably.FoldingStats
+     , Math.Probably.Utils
+     , Strategy.Hamiltonian
+     , Strategy.MALA
+     , Strategy.Metropolis
+     , Strategy.NUTS
+     , Strategy.NUTSDualAveraging
+     , Strategy.Slice
+  -- , Target.Prelude
+  -- , Target.Regression
+  -- , Target.Logistic
+  -- , Target.Heston
                         
-   Build-depends:     base                    >= 4.6 && < 5
-                    , binary                  >= 0.7.1.0
-                    , containers              >= 0.5.5.1
-                    , data-default            >= 0.5.3
-                    , deepseq                 >= 1.3.0.1
-                    , hmatrix                 >= 0.15
-                    , mersenne-random-pure64  >= 0.2.0.3
-                    , mtl                     >= 2.1.2
-                    , spoon                   >= 0.3.1
-                    , statistics              >= 0.10.4.1
-                    , vector                  >= 0.10.0.1
+   Build-depends:
+       base                    >= 4.6 && < 5
+     , binary                  >= 0.7.1.0
+     , containers              >= 0.5.5.1
+     , data-default            >= 0.5.3
+     , deepseq                 >= 1.3.0.1
+     , hmatrix                 >= 0.15
+     , mersenne-random-pure64  >= 0.2.0.3
+     , mtl                     >= 2.1.2
+     , spoon                   >= 0.3.1
+     , statistics              >= 0.10.4.1
+     , vector                  >= 0.10.0.1
+     , math-functions          >= 0.1
+     , storable-tuple          >= 0.0
+     , array                   >= 0.5
+     , text                    >= 1.1
 
-                    , math-functions          >= 0.1
-                    , storable-tuple          >= 0.0
-                    , array                   >= 0.5
-                    , text                    >= 1.1
-
-Executable SanityCheck
+Test-suite SanityCheck
    Main-Is:           SanityCheck.hs
    ghc-options:       -O2 
+   hs-source-dirs:    src, test
 
-   Build-depends:     base                    >= 4.6 && < 5
-                    , binary                  >= 0.7.1.0
-                    , containers              >= 0.5.5.1
-                    , data-default            >= 0.5.3
-                    , deepseq                 >= 1.3.0.1
-                    , hmatrix                 >= 0.15
-                    , mersenne-random-pure64  >= 0.2.0.3
-                    , mtl                     >= 2.1.2
-                    , spoon                   >= 0.3.1
-                    , statistics              >= 0.10.4.1
-                    , vector                  >= 0.10.0.1
-
-                    , math-functions          >= 0.1
-                    , storable-tuple          >= 0.0
-                    , array                   >= 0.5
-                    , text                    >= 1.1
+   Build-depends:
+       base                    >= 4.6 && < 5
+     , binary                  >= 0.7.1.0
+     , containers              >= 0.5.5.1
+     , data-default            >= 0.5.3
+     , deepseq                 >= 1.3.0.1
+     , hmatrix                 >= 0.15
+     , mersenne-random-pure64  >= 0.2.0.3
+     , mtl                     >= 2.1.2
+     , spoon                   >= 0.3.1
+     , statistics              >= 0.10.4.1
+     , vector                  >= 0.10.0.1
+     , math-functions          >= 0.1
+     , storable-tuple          >= 0.0
+     , array                   >= 0.5
+     , text                    >= 1.1
 

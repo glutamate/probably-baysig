@@ -52,9 +52,6 @@ firstWithProb p t0 t1 = do
   s <- lift $ bernoulli p
   if s then t0 else t1
 
-trace :: Int -> Transition t -> Chain t -> Prob (Prob Parameters)
-trace n t o = Samples <$> replicateM n t `evalStateT` o
-
 ezMC :: (Chain t -> Prob (Chain t)) -> Transition t
 ezMC f = get >>= lift . f >>= put >> gets parameterSpacePosition
 
@@ -70,4 +67,7 @@ polyInterleave tr1 tr2 = do
   put $ Chain current2 target2 val2 (tun1next, tun2next) 
 
   return ret
+
+trace :: Int -> Transition t -> Chain t -> Prob (Prob Parameters)
+trace n t o = Samples <$> replicateM n t `evalStateT` o
 
