@@ -38,6 +38,21 @@ gammafun = exp . S.gammaln
 gamma :: Double -> Double -> PDF Double
 gamma k theta x = log $ x**(k-1)*(exp(-x/theta)/(theta**k*(exp (S.gammaln k))))
 
+polygamma :: (Real a, Floating a, Enum a) => a -> a -> a-> a
+polygamma k theta x = log $ x**(k-1)*(exp(-x/theta)/(theta**k*(exp (polygammaln k))))
+
+polycof = [76.18009172947146,-86.50532032941677,24.01409824083091,
+       -1.231739572450155,0.001208650973866179,-0.000005395239384953]
+ 
+--ser :: Double
+polyser = 1.000000000190015
+ 
+--gammaln :: Double -> Double
+polygammaln xx = let tmp' = (xx+5.5) - (xx+0.5)*log(xx+5.5)
+                     ser' = foldl (+) polyser $ map (\(y,c) -> c/(xx+y)) $ zip [1..] polycof
+                 in -tmp' + log(2.5066282746310005 * ser' / xx)
+
+
 invGamma :: Double -> Double -> PDF Double
 invGamma a b x =log $ (b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
 
