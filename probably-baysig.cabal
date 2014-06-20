@@ -51,6 +51,7 @@ Library
      , Math.Probably.MCMC
      , Math.Probably.FoldingStats
      , Math.Probably.Utils
+     , Math.Probably.Circular
      , Strategy.Hamiltonian
      , Strategy.MALA
      , Strategy.Metropolis
