@@ -17,7 +17,7 @@ Description:
   .
   * Math.Probably.FoldingStats defines statistics as folds
     that can be composed and calculated independently of the
-    container of the underlying data. 
+    container of the underlying data.
   .
   * Strategy.* implements various transition operators for
     Markov Chain Monte Carlo, including Metropolis-Hastings,
@@ -28,7 +28,7 @@ Description:
     for running Markov chains and interleaving transition
     operators.
   .
-                     
+
 License:             GPL
 License-file:        LICENSE
 Author:              Tom Nielsen
@@ -51,6 +51,7 @@ Library
      , Math.Probably.MCMC
      , Math.Probably.FoldingStats
      , Math.Probably.Utils
+     , Math.Probably.PCA
      , Math.Probably.Circular
      , Strategy.Hamiltonian
      , Strategy.MALA
@@ -62,7 +63,7 @@ Library
   -- , Target.Regression
   -- , Target.Logistic
   -- , Target.Heston
-                        
+
    Build-depends:
        base                    >= 4.6 && < 5
      , binary                  >= 0.7.1.0
@@ -83,7 +84,7 @@ Library
 Test-suite SanityCheck
    type:              exitcode-stdio-1.0
    Main-Is:           SanityCheck.hs
-   ghc-options:       -O2 
+   ghc-options:       -O2
    hs-source-dirs:    src, test
 
    Build-depends:
@@ -102,4 +103,3 @@ Test-suite SanityCheck
      , storable-tuple          >= 0.0
      , array                   >= 0.5
      , text                    >= 1.1
-
