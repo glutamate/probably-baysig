@@ -49,3 +49,10 @@ pca prec (m,s,v) = (encode,decode)
     prec' = if prec <=0.0 || prec >= 1.0
                 then error "the precision in pca must be 0<prec<1"
                 else prec
+
+pcaN :: Int -> Stat -> (Vec -> Vec , Vec -> Vec)
+pcaN n (m,s,v) = (encode,decode)
+  where
+    encode x = vp <> (x - m)
+    decode x = x <> vp + m
+    vp = takeRows n v
