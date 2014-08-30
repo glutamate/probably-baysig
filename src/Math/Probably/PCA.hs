@@ -1,6 +1,7 @@
 module Math.Probably.PCA where
 
-import  Numeric.LinearAlgebra
+import Numeric.LinearAlgebra
+import Control.Spoon
 
 empiricalCovariance :: [Vector Double] -> Matrix Double
 empiricalCovariance xs
@@ -37,6 +38,9 @@ stat :: Mat -> Stat
 stat x = (m, toList s, trans v) where
     m = mean x
     (s,v) = eigSH' (cov x)
+
+mbStat :: Mat -> Maybe Stat
+mbStat = spoon . stat
 
 pca :: Double -> Stat -> (Vec -> Vec , Vec -> Vec)
 pca prec (m,s,v) = (encode,decode)
