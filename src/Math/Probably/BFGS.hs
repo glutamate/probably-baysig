@@ -79,7 +79,7 @@ data BFGS = BFGS { p :: Point
 -- Main solver interface with default options.
 --
 bfgs :: Fn -> GradFn -> Point -> Either String (Point, Hessian)
-bfgs = bfgsWith def
+bfgs f df p0 = bfgsWith def f df p0 (ident $ dim p0)
 
 
 {- Collection solver state into an infinite list: useful as "take n $
@@ -102,8 +102,8 @@ bfgsInit f df p0 = case (hasnan f0, hasnan g0) of
 -- Main iteration routine: sets up initial BFGS state, then steps
 -- until converged or maximum iterations exceeded.
 --
-bfgsWith :: BFGSOpts -> Fn -> GradFn -> Point -> Either String (Point, Hessian)
-bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 =
+bfgsWith :: BFGSOpts -> Fn -> GradFn -> Point -> Hessian -> Either String (Point, Hessian)
+bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 h0 =
   case (hasnan f0, hasnan g0) of
     (False, False) -> go 0 b0
     errs -> Left $ nanMsg p0 (Just f0) (Just g0)
@@ -115,7 +115,7 @@ bfgsWith opt@(BFGSOpts _ _ maxiters) f df p0 =
             Right (True, b') -> Right (p b', h b')
             Right (False, b') -> go (iters+1) b'
         f0 = f p0 ; g0 = df p0
-        b0 = BFGS p0 f0 g0 (-g0) (ident $ dim p0) (maxStep p0)
+        b0 = BFGS p0 f0 g0 (-g0) h0 (maxStep p0)
 
 
 -- Do a BFGS step with default parameters.
