@@ -1,0 +1,25 @@
+
+name:                ad-experiments
+version:             0.1.0.0
+synopsis:            Implementing symbolic differentiation with automatic
+                     differentiation.
+license:             BSD3
+license-file:        LICENSE
+author:              Jared Tobin
+maintainer:          jared@jtobin.ca
+copyright:           OpenBrain Ltd.
+category:            Scientific
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:   Example
+  default-language:  Haskell2010
+  build-depends:
+      ad             >= 4.2.1
+    , base           >= 4.7 && <4.8
+    , containers     >= 0.5 && <0.6
+    , data-reify     >= 0.6
+    , data-reify-cse >= 0.0.3
+
