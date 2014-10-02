@@ -1,12 +1,12 @@
 {- |
 
-Composable statistics. See 
+Composable statistics. See
 
 * <http://squing.blogspot.com/2008/11/beautiful-folding.html>
 
 * <http://sneezy.cs.nott.ac.uk/fplunch/weblog/?p=232>
 
--} 
+-}
 
 {-# LANGUAGE ExistentialQuantification #-}
 
@@ -14,6 +14,7 @@ module Math.Probably.FoldingStats where
 
 import Control.Applicative
 import Data.Foldable
+import qualified Data.Vector.Generic as VG
 
 data Fold b c = forall a. F (a -> b -> a) a (a -> c) (a -> a -> a)
 
@@ -22,7 +23,7 @@ instance Functor (Fold a) where
 
 instance Applicative (Fold a) where
 	pure x = F (\_ _ -> ()) () (\_ -> x) (\_ _-> ())
-	f <*> g = (uncurry ($)) `fmap` both f g -- :: Fold a (b->c, b) 
+	f <*> g = (uncurry ($)) `fmap` both f g -- :: Fold a (b->c, b)
 
 {-instance Bounded Double where
     minBound = -1e-200
@@ -34,7 +35,7 @@ data P a b = P !a !b
 -- * combinators
 
 both :: Fold b c -> Fold b c' -> Fold b (c, c')
-both (F f x c pc) (F g y c' pc') = F (comb f g) (P x y) (c *** c') 
+both (F f x c pc) (F g y c' pc') = F (comb f g) (P x y) (c *** c')
 				     $ \(P a1 a2) (P a1' a2')->P (pc a1 a1') (pc' a2 a2')
     where
         comb f g (P a a') b = P (f a b) (g a' b)
@@ -53,13 +54,13 @@ bothWith combiner f1 f2 = after (both f1 f2) (uncurry combiner)
 -- * Running statistics
 
 progressively :: Fold b c -> [b] -> [c]
-progressively (F f x c _) = map c . (scanl f x) 
+progressively (F f x c _) = map c . (scanl f x)
 
 runStat :: (Foldable t) => Fold b c -> t b -> c
 runStat (F f x c _) = c . (foldl' f x)
 
 --runStatU :: (UA b) => Fold b c -> UArr b -> c
---runStatU (F f x c _) = c . (foldlU f x) 
+--runStatU (F f x c _) = c . (foldlU f x)
 
 runStatOnMany :: Fold b c -> [[b]] -> [c]
 runStatOnMany _ [] = []
@@ -114,9 +115,9 @@ stdDevF = sqrt <$> varF
 stdDevPF = sqrt <$> varPF
 
 varF, varPF :: Fractional a => Fold a a
-varF = f <$> nSumSumSqr 
+varF = f <$> nSumSumSqr
     where f ((s0, s1), s2) = (s0*s2-s1*s1)/(s0*(s0-1))
-varPF = f <$> nSumSumSqr 
+varPF = f <$> nSumSumSqr
     where f ((s0, s1), s2) = recip (s0*s0)*(s0*s2-s1*s1)
 
 
@@ -128,16 +129,17 @@ meanF :: Fractional a => Fold a a
 meanF = pure (/) <*> sumF <*> realLengthF
 
 meanSDF :: Floating a => Fold a (a,a)
-meanSDF = f <$> nSumSumSqr 
+meanSDF = f <$> nSumSumSqr
     where f ((s0, s1), s2) = (s1/s0, sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))
 
+
 meanSDNF :: Floating a => Fold a (a,a,a)
-meanSDNF = f <$> nSumSumSqr 
+meanSDNF = f <$> nSumSumSqr
     where f ((s0, s1), s2) = (s1/s0, sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)), s0)
 
 
 meanSEMF :: Floating a => Fold a (a,a)
-meanSEMF = f <$> nSumSumSqr 
+meanSEMF = f <$> nSumSumSqr
     where f ((s0, s1), s2) = (s1/s0, (sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))/sqrt s0)
 
 -- * More statisitcs
@@ -165,14 +167,14 @@ jumpFreqByF p = F f ini c comb
           ini = (Nothing, 0, 0)
           c (_, j, t) = realToFrac j/realToFrac t
           comb (_, a, b) (_, c, d) = (Nothing, a+c, d+b)
-                                                         
+
 
 regressF :: Fold (Double, Double) (Double, Double)
-regressF = post <$> (	 dotProdF `both` 
-			(before sumF fst) `both` 
-			(before sumF snd) `both` 
-			(before sumF (square . fst)) `both` 
-			realLengthF) 
+regressF = post <$> (	 dotProdF `both`
+			(before sumF fst) `both`
+			(before sumF snd) `both`
+			(before sumF (square . fst)) `both`
+			realLengthF)
 	where post ((((dotp, sx), sy), sqrx), len) = let nume = dotp - sx*sy/len
 							 denom = sqrx - square sx/len
 							 slope = nume/denom
@@ -183,13 +185,10 @@ nSumSumSqr :: Fractional a => Fold a ((a, a), a)
 nSumSumSqr = (realLengthF `both` sumF `both` (before sumF square))
 
 gammaF :: Fold Double (Double,Double)
-gammaF = 
-   let final mn lmn = 
+gammaF =
+   let final mn lmn =
            let s = log mn - lmn
                kapprox = (3-s+sqrt((s-3)**2+24*s))/(12*s)
                theta = recip kapprox * mn
            in (kapprox, theta)
    in pure final <*> meanF <*> before meanF log
-
-
-
