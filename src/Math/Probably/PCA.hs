@@ -91,6 +91,11 @@ normaliseBy veclens idlens ncomponents = equaliseVars veclens
                                          . pcaFeatures veclens ncomponents
                                          . equaliseVars veclens
 
+normaliseNoRank :: Lens a Vec -> Int -> [a] -> [a]
+normaliseNoRank veclens  ncomponents = equaliseVars veclens
+                                         . pcaFeatures veclens ncomponents
+                                         . equaliseVars veclens
+
 
 equaliseVars ::Lens a Vec -> [a] -> [a]
 equaliseVars veclens xs = equal_vars where
