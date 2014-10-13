@@ -38,9 +38,7 @@ main = do
 
 module Math.Probably.Sampler where
 
-import Control.Applicative
 import Control.Monad
-import Control.Spoon
 import Data.List
 import Data.Maybe
 import Data.Ord
@@ -59,7 +57,7 @@ runProb _ (Samples xs) = xs
 
 -- | given a seed, return an infinite list of draws from sampling function
 runProbOne :: Seed -> Prob a -> (a,Seed)
-runProbOne pmt s@(Sampler sf) 
+runProbOne pmt (Sampler sf) 
    = sf pmt
 runProbOne pmt (Samples xs) = primOneOf xs pmt
 
@@ -130,7 +128,11 @@ unit = Sampler randomDouble
 -- | for x and y, the uniform distribution between x and y 
 uniform :: (Fractional a) => a -> a -> Prob a
 uniform a b = (\x->(realToFrac x)*(b-a)+a) `fmap` unit
-                
+
+-- | useful for data display
+jitter :: Double -> [Int] -> Prob [Double]
+jitter j = mapM $ \i-> let x = realToFrac i in uniform (x-j) (x+j)
+              
 -- * Normally distributed sampling function
 
 --http://en.wikipedia.org/wiki/Box-Muller_transform
@@ -142,6 +144,7 @@ unormal = do
    u2 <- unit
    return (sqrt ((0.0-2.0) * log u1) * cos(2.0 * pi * u2)) 
 
+normal :: Double -> Double -> Prob Double
 normal mean variance = do
    u <- unormal
    return (u * (sqrt variance) + mean)
