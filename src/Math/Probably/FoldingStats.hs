@@ -15,6 +15,7 @@ module Math.Probably.FoldingStats where
 import Control.Applicative
 import Data.Foldable
 import qualified Data.Vector.Generic as VG
+import Data.List (sort)
 
 data Fold b c = forall a. F (a -> b -> a) a (a -> c) (a -> a -> a)
 
@@ -192,3 +193,12 @@ gammaF =
                theta = recip kapprox * mn
            in (kapprox, theta)
    in pure final <*> meanF <*> before meanF log
+
+
+quantiles :: Int -> [Double] -> [Double]
+quantiles nqs xs
+  = let sorted = sort xs
+        nxs = realToFrac $ length sorted
+        f :: Double -> Double
+        f q = sorted !! (round $ nxs * q / realToFrac nqs)
+    in map (f . realToFrac) [1..(nqs-1)]
