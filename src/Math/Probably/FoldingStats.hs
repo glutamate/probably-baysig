@@ -195,10 +195,10 @@ gammaF =
    in pure final <*> meanF <*> before meanF log
 
 
-quantiles :: Int -> [Double] -> [Double]
+quantiles :: Ord a => Int -> [a] -> [a]
 quantiles nqs xs
   = let sorted = sort xs
+        nxs:: Double
         nxs = realToFrac $ length sorted
-        f :: Double -> Double
         f q = sorted !! (round $ nxs * q / realToFrac nqs)
     in map (f . realToFrac) [1..(nqs-1)]
