@@ -143,6 +143,10 @@ meanSEMF :: Floating a => Fold a (a,a)
 meanSEMF = f <$> nSumSumSqr
     where f ((s0, s1), s2) = (s1/s0, (sqrt $ (s0*s2-s1*s1)/(s0*(s0-1)))/sqrt s0)
 
+rmseF :: Floating a => Fold (a,a) a
+rmseF = pure sqrt <*> before meanF (\(x,y)-> (x-y)*(x-y))
+
+
 -- * More statisitcs
 
 muLogNormalF :: Floating a => Fold a a
