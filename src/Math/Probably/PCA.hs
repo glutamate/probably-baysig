@@ -107,6 +107,11 @@ equaliseVars veclens xs = equal_vars where
   g :: Vec -> Vec
   g fl = VS.zipWith (\x (mn,sd) -> (x-mn)/sd) fl decorr_vars
 
+vecMeanSds :: [Vector Double] -> Vector (Double, Double)
+vecMeanSds xs = uncurry (VS.zipWith (,)) $ runStat meanSDF  xs
+  
+
+
 rankTransform :: (Eq b, Ord b) => Lens a Vec -> Lens a b -> [a] -> [a]
 rankTransform veclens idlens nmfeatures = rankTransformed where
   nfeatures = VS.length $ get veclens $ head $ nmfeatures
