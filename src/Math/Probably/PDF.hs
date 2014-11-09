@@ -30,6 +30,10 @@ normalLogPdf :: (Real a, Floating a) => a-> a-> a -> a
 normalLogPdf mean variance x
    = ((log 1)-(0.500*(log ((2.000*pi)*variance))))-(((x-mean)**2)/(2*variance))
 
+normalSdPdf mean sd x = exp(-(x-mean)^2/(2*sd^2))/(sd*sqrt(2*pi))
+
+normalSdLogPdf mean sd x = -(x-mean)^2/(2*sd^2) - log(sd) -log(2*pi)/2
+
 
 -- | Normal distribution, specialised for Doubles
 gammafun = exp . S.gammaln
