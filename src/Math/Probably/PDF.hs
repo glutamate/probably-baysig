@@ -1,4 +1,4 @@
--- | 
+-- |
 -- Defines Log-domain probability density functions
 
 
@@ -24,7 +24,7 @@ uniform from to = \x-> if x>=from && x <=to
 
 -- | Normal distribution by variance
 normal :: (Real a, Floating a) => a-> a-> a -> a
-normal = normalLogPdf 
+normal = normalLogPdf
 
 normalLogPdf :: (Real a, Floating a) => a-> a-> a -> a
 normalLogPdf mean variance x
@@ -34,6 +34,11 @@ normalSdPdf mean sd x = exp(-(x-mean)^2/(2*sd^2))/(sd*sqrt(2*pi))
 
 normalSdLogPdf mean sd x = -(x-mean)^2/(2*sd^2) - log(sd) -log(2*pi)/2
 
+dNormSd_wrt_mean mean sd x = (x-mean)/(sd*sd)
+
+dNormSd_wrt_sd m s x = ((m-x)^2-s*s)/(s*s*s)
+
+dNormSd_wrt_draw m s x = (m-x)/(s*s)
 
 -- | Normal distribution, specialised for Doubles
 gammafun = exp . S.gammaln
@@ -47,10 +52,10 @@ polygamma k theta x = log $ x**(k-1)*(exp(-x/theta)/(theta**k*(exp (polygammaln 
 
 polycof = [76.18009172947146,-86.50532032941677,24.01409824083091,
        -1.231739572450155,0.001208650973866179,-0.000005395239384953]
- 
+
 --ser :: Double
 polyser = 1.000000000190015
- 
+
 --gammaln :: Double -> Double
 polygammaln xx = let tmp' = (xx+5.5) - (xx+0.5)*log(xx+5.5)
                      ser' = foldl (+) polyser $ map (\(y,c) -> c/(xx+y)) $ zip [1..] polycof
@@ -64,12 +69,12 @@ invGamma a b x =log $ (b**a/gammafun a)*(1/x)**(a+1)*exp(-b/x)
 logNormal :: Double -> Double-> PDF Double
 logNormal = logNormal
 
--- | Beta distribution 
+-- | Beta distribution
 beta a b x = log $ (recip $ S.beta a b) * x ** (a-1) * (1-x) ** (b-1)
 
 -- | Binomial distribution. This is the Probability Mass Function, not PDF
 binomial :: Int -> Double -> PDF Int
-binomial n p k = 
+binomial n p k =
     let realk = realToFrac k
     in log (realToFrac (choose (toInteger n) (toInteger k))) + realk * log( p ) + (realToFrac $ n-k) * log( (1-p) )
  where --http://blog.plover.com/math/choose.html
@@ -88,30 +93,30 @@ mulPdf :: Num a => PDF a -> PDF a -> PDF a
 mulPdf d1 d2 = \x -> (d1 x + d2 x)
 
 --instance Num a => Num (PDF a) where
-   
-instance NFData (Matrix Double) 
+
+instance NFData (Matrix Double)
    where rnf mat = mapMatrix (\x-> x `seq` 1.0::Double) mat `seq` ()
 
 -- | multivariate normal
 multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)
-multiNormal mu sigma = 
+multiNormal mu sigma =
   let k = realToFrac $ dim mu
-      invSigma =  inv sigma 
+      invSigma =  inv sigma
       mat1 = head . head . toLists
-  in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
+  in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) )
 
 
 multiNormalByInv :: Double -> Matrix Double -> Vector Double -> PDF (Vector Double)
-multiNormalByInv lndet invSigma mu = 
+multiNormalByInv lndet invSigma mu =
   let k = realToFrac $ dim mu
       mat1 = head . head . toLists
-  in \x-> log 1 - (k/2)*log (2*pi) - lndet/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
+  in \x-> log 1 - (k/2)*log (2*pi) - lndet/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) )
 
 multiNormalByInvFixCov ::  Matrix Double -> Vector Double -> PDF (Vector Double)
-multiNormalByInvFixCov invSigma mu = 
+multiNormalByInvFixCov invSigma mu =
   let k = realToFrac $ dim mu
       mat1 = head . head . toLists
-  in \x-> (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) ) 
+  in \x-> (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) )
 
 
 multiNormalIndep :: Vector Double -> Vector Double -> PDF (Vector Double)
@@ -126,13 +131,13 @@ tst = multiNormal mu1 sig1 mu1
 tsta = inv sig1
 tstb = det sig1
 tstc = let mu = mu1
-           sigma = sig1 
+           sigma = sig1
            x = mu1
            invSigma = inv sigma
        in (asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu)  -}
 
 
-posdefify m = 
+posdefify m =
    let (eigvals, eigvecM) = eigSH $ mkSym {- $ trace (show m) -}  m
        n = rows m
        eigValsVecs = map f $ zip (toList eigvals) (toColumns eigvecM)
@@ -141,5 +146,5 @@ posdefify m =
        bigLambda = diag $ fromList $ map fst eigValsVecs
    in mkSym $ q `multiply` bigLambda `multiply` inv q
 
-mkSym m = buildMatrix (rows m) (cols m)$ \(i,j) ->if i>=j then m @@>(i,j) 
-                                                           else m @@>(j,i) 
+mkSym m = buildMatrix (rows m) (cols m)$ \(i,j) ->if i>=j then m @@>(i,j)
+                                                           else m @@>(j,i)
