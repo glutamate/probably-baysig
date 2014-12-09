@@ -3,6 +3,8 @@
 module Math.Probably.PCA where
 
 import Numeric.LinearAlgebra
+import Numeric.LinearAlgebra.Data
+import Numeric.LinearAlgebra.HMatrix ((#>))
 import Math.Probably.FoldingStats
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Storable as VS
@@ -27,10 +29,27 @@ empiricalCovariance xs
 --     in L.scale (recip $ realToFrac k) $ m1 - m2
      in scale (recip $ realToFrac k - 1 ) $ sum $ map f xs
 
+empiricalCovariance' :: Vector Double -> [Vector Double] -> Matrix Double
+empiricalCovariance' xmn xs
+   = let k = length xs
+         --barxk = L.scale (recip $ realToFrac $ k+1) $ sum xs
+         --m1 = sum $ map (\xv-> L.outer xv xv) xs
+         --m2 = L.scale (realToFrac $ k+1) $ L.outer barxk barxk
+         f xi = outerSame $ xi - xmn
+--     in L.scale (recip $ realToFrac k) $ m1 - m2
+     in scale (recip $ realToFrac k - 1 ) $ sumWith f xs
+
+
 outerSame v = outer v v
 
+--sumWithVs :: (Vector Double -> Vector Double) -> [Vector Double] -> Vector Double
+--sumWithVs f = foldl1' (\acc v -> acc + f v)
+
+sumWith :: Num a => (Vector Double -> a) -> [Vector Double] -> a
+sumWith f (v:vs) = foldl' (\acc v -> acc + f v) (f v) vs
+
 empiricalMean :: [Vector Double] -> Vector Double
-empiricalMean vecs = scale (recip $ realToFrac $ length vecs) $ sum vecs
+empiricalMean vecs = scale (recip $ realToFrac $ length vecs) $ sumWith id vecs
 
 -- copied from https://github.com/albertoruiz/hmatrix/blob/master/examples/pca2.hs
 
@@ -44,6 +63,9 @@ mean a = constant (recip . fromIntegral . rows $ a) (rows a) <> a
 cov x = (trans xc <> xc) / fromIntegral (rows x - 1)
     where xc = x - asRow (mean x)
 
+cov0 x = (trans x <> x) / fromIntegral (rows x - 1)
+    --where xc = x - asRow (mean x)
+
 
 type Stat = (Vec, [Double], Mat)
 -- 1st and 2nd order statistics of a dataset (mean, eigenvalues and eigenvectors of cov)
@@ -51,6 +73,33 @@ stat :: Mat -> Stat
 stat x = (m, toList s, trans v) where
     m = mean x
     (s,v) = eigSH' (cov x)
+
+stat0 :: Mat -> Stat
+stat0 x = (m, toList s, trans v) where
+    m = VS.map (const 0) s
+    c = cov0 x
+    (s,v) = eigSH' $ trace ("cov00="++(show (c!0!0))) $ c
+
+statSVD :: Mat -> Stat
+statSVD x = (m, [], evecs) where
+    m = VS.map (const 0) evals
+    c = cov0 x
+    (_, evals, evecCols) = svd c
+    evecs = fromRows $ map evecSigns $ toColumns evecCols
+    evecSigns ev = let maxelidx = maxIndex $ cmap abs ev
+                       sign = signum (ev ! maxelidx)
+                   in cmap (sign *) ev
+
+pcaNSVD :: Int -> Stat -> (Vec -> Vec , Vec -> Vec)
+pcaNSVD  n (m,_,evecs) = (encode,decode)
+  where
+    encode x = VS.take n $ evecs #> (x - m)
+    decode x = error "not sure right now"
+
+statVs :: [Vector Double] -> Stat
+statVs vs = (m, toList s, trans v) where
+    m = empiricalMean vs
+    (s,v) = eigSH' (empiricalCovariance' m vs)
 
 mbStat :: Mat -> Maybe Stat
 mbStat = spoon . stat
@@ -109,7 +158,10 @@ equaliseVars veclens xs = equal_vars where
 
 vecMeanSds :: [Vector Double] -> Vector (Double, Double)
 vecMeanSds xs = uncurry (VS.zipWith (,)) $ runStat meanSDF  xs
-  
+
+vecMeans :: [Vector Double] -> Vector Double
+vecMeans xs = scale (recip $ realToFrac $ length xs) $ sumWith id xs
+
 
 
 rankTransform :: (Eq b, Ord b) => Lens a Vec -> Lens a b -> [a] -> [a]
