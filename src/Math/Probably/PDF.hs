@@ -94,8 +94,8 @@ mulPdf d1 d2 = \x -> (d1 x + d2 x)
 
 --instance Num a => Num (PDF a) where
 
-instance NFData (Matrix Double)
-   where rnf mat = mapMatrix (\x-> x `seq` 1.0::Double) mat `seq` ()
+{-instance NFData (Matrix Double)
+   where rnf mat = mapMatrix (\x-> x `seq` 1.0::Double) mat `seq` () -}
 
 -- | multivariate normal
 multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)

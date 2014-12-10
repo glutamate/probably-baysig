@@ -82,8 +82,8 @@ stat0 x = (m, toList s, trans v) where
 
 statSVD :: Mat -> Stat
 statSVD x = (m, [], evecs) where
-    m = VS.map (const 0) evals
-    c = cov0 x
+    m = mean x
+    c = cov x
     (_, evals, evecCols) = svd c
     evecs = fromRows $ map evecSigns $ toColumns evecCols
     evecSigns ev = let maxelidx = maxIndex $ cmap abs ev
