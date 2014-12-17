@@ -90,6 +90,16 @@ statSVD x = (m, [], evecs) where
                        sign = signum (ev ! maxelidx)
                    in cmap (sign *) ev
 
+statThinSVD :: Mat -> Stat
+statThinSVD x = (m, [], evecs) where
+    m = mean x
+    c = cov x
+    (_, evals, evecCols) = thinSVD c
+    evecs = fromRows $ map evecSigns $ toColumns evecCols
+    evecSigns ev = let maxelidx = maxIndex $ cmap abs ev
+                       sign = signum (ev ! maxelidx)
+                   in cmap (sign *) ev
+
 pcaNSVD :: Int -> Stat -> (Vec -> Vec , Vec -> Vec)
 pcaNSVD  n (m,_,evecs) = (encode,decode)
   where
