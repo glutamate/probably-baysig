@@ -4,9 +4,9 @@ This module defines the monad of sampling functions. See
 
 Park, Pfenning and Thrun (2005) A probabilistic language based upon sampling
 functions, Principles of Programming Languages 2005
- 
-Sampling functions allow the composition of both discrete and continuous 
-probability distributions. 
+
+Sampling functions allow the composition of both discrete and continuous
+probability distributions.
 
 The implementation and interface are similar to those in the random-fu,
 monte-carlo and monad-mersenne-random packages.
@@ -22,11 +22,11 @@ throw bias = do
 
 tenThrowsCrooked = replicateM 10 $ throw 0.3
 
-countHeads = do 
+countHeads = do
    throws <- tenThrowsCrooked
    return $ length [ () | Head <- throws]
 
-main = do 
+main = do
  print =<< sampleIO tenThrowsCrooked
  print =<< eval ((\<4) \`fmap\` countHeads)
 @
@@ -50,14 +50,14 @@ import System.Random.Mersenne.Pure64
 
 -- | given a seed, return an infinite list of draws from sampling function
 runProb :: Seed -> Prob a -> [a]
-runProb pmt s@(Sampler sf) 
+runProb pmt s@(Sampler sf)
    = let (x, pmt') = sf pmt
      in x : runProb pmt' s
 runProb _ (Samples xs) = xs
 
 -- | given a seed, return an infinite list of draws from sampling function
 runProbOne :: Seed -> Prob a -> (a,Seed)
-runProbOne pmt (Sampler sf) 
+runProbOne pmt (Sampler sf)
    = sf pmt
 runProbOne pmt (Samples xs) = primOneOf xs pmt
 
@@ -67,13 +67,13 @@ runProbOne pmt (Samples xs) = primOneOf xs pmt
 getSeedIO :: IO Seed
 getSeedIO = do
    args <- getArgs
-   case mapMaybe (stripPrefix "--seed=") args of 
+   case mapMaybe (stripPrefix "--seed=") args of
       [] ->  newPureMT
       sdStr:_ -> return $ pureMT $ read sdStr
 
 -- | Return an infinite list of draws from sampling function in the IO monad
 runProbIO :: Prob a -> IO [a]
-runProbIO s = 
+runProbIO s =
    fmap (`runProb` s) $ getSeedIO
 
 -- | Return a singe draw from sampling function
@@ -87,9 +87,9 @@ sampleNIO n s = take n `fmap` runProbIO s
 -- | Estimate the probability that a hypothesis is true (in the IO monad)
 eval :: Prob Bool -> Prob Double
 eval s = do
-  bs <- replicateM 1000 s 
+  bs <- replicateM 1000 s
   return $ realToFrac (length (filter id bs)) / 1000
- 
+
 
 
 {-mu :: Vector Double
@@ -100,7 +100,7 @@ mu = fromList [0,0,0]
 sigma =  (3><3) [ 1,    1,       0,
                   1,    1,     mystery,
                   0,  mystery,   1]
-                    
+
 
 samIt = sampleNIO 2 $ multiNormal mu sigma
  -}
@@ -110,7 +110,7 @@ joint sf1 sf2 = liftM2 (,) sf1 sf2
 
 -- | The joint distribution of two distributions where one depends on the other
 jointConditional :: Prob a -> (a-> Prob b) -> Prob (a,b)
-jointConditional sf1 condsf 
+jointConditional sf1 condsf
     = do x <- sf1
          y <- condsf x
          return (x,y)
@@ -118,21 +118,21 @@ jointConditional sf1 condsf
 --replicateM :: Monad m => Int -> m a -> m [a]
 --replicateM n ma = forM [1..n] $ const ma
 
-                            
+
 -- * Uniform distributions
-     
+
 -- | The unit interval U(0,1)
 unit :: Prob Double
-unit = Sampler randomDouble 
+unit = Sampler randomDouble
 
--- | for x and y, the uniform distribution between x and y 
+-- | for x and y, the uniform distribution between x and y
 uniform :: (Fractional a) => a -> a -> Prob a
 uniform a b = (\x->(realToFrac x)*(b-a)+a) `fmap` unit
 
 -- | useful for data display
 jitter :: Double -> [Int] -> Prob [Double]
 jitter j = mapM $ \i-> let x = realToFrac i in uniform (x-j) (x+j)
-              
+
 -- * Normally distributed sampling function
 
 --http://en.wikipedia.org/wiki/Box-Muller_transform
@@ -142,7 +142,7 @@ unormal ::  Prob Double
 unormal = do
    u1 <- unit
    u2 <- unit
-   return (sqrt ((0.0-2.0) * log u1) * cos(2.0 * pi * u2)) 
+   return (sqrt ((0.0-2.0) * log u1) * cos(2.0 * pi * u2))
 
 normal :: Double -> Double -> Prob Double
 normal mean variance = do
@@ -162,7 +162,7 @@ normalManyUnit 0 = return []
 normalManyUnit n | odd n = liftM2 (:) unormal (normalManyUnit (n-1))
                  | otherwise = do us <- forM [1..n] $ const $ unit
                                   return $ gaussTwoAtATime $ map realToFrac us
-  where 
+  where
     gaussTwoAtATime :: Floating a =>  [a] -> [a]
     gaussTwoAtATime (u1:u2:rest) = sqrt(-2*log(u1))*cos(2*pi*u2) : sqrt(-2*log(u1))*sin(2*pi*u2) : gaussTwoAtATime rest
     gaussTwoAtATime _ = []
@@ -202,18 +202,18 @@ multiNormalIndep vars mus = do
 
 -- | log-normal distribution <http://en.wikipedia.org/wiki/Log-normal_distribution>
 logNormal :: Double -> Double -> Prob Double
-logNormal m var = 
+logNormal m var =
     fmap exp $  normal m var
 
 -- * Other distribution
 
 -- | Bernoulli distribution. Returns a Boolean that is 'True' with probability 'p'
 bernoulli :: Double -> Prob Bool
-bernoulli p = (<p) `fmap` unit 
+bernoulli p = (<p) `fmap` unit
 
 
 discrete :: [(Double,a)] -> Prob a
-discrete weightedSamples = 
+discrete weightedSamples =
    let sumWeights = sum $ map fst weightedSamples
        cummWeightedSamples = scanl (\(csum,_) (w,x) -> (csum+w,x)) (0,undefined) $ sortBy (comparing fst) weightedSamples
    in do u <- unit
@@ -221,7 +221,7 @@ discrete weightedSamples =
 
 
 -- primOneOf :: [a] -> Seed -> (a, Seed)
--- primOneOf xs seed 
+-- primOneOf xs seed
 --    = let (u, nextSeed) = randomDouble seed
 --          idx = floor $ (realToFrac u)*(realToFrac $ length xs )
 --      in (xs !! idx, nextSeed)
@@ -233,30 +233,45 @@ oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
 nOf :: Int -> [a] -> Prob [a]
 nOf n xs = sequence $ replicate n $ oneOf xs
 
--- | Bayesian inference from likelihood and prior using rejection sampling. 
+
+--sampling without replacement. Terrible performance
+nDistinctOf :: Int ->  [a] -> Prob [a]
+nDistinctOf wantN xs = do
+  let haveN = length xs
+      select ys | length ys == wantN = return ys
+                | otherwise = do
+                    y <- oneOf [0..(haveN-1)]
+                    if y `elem` ys
+                       then select ys
+                       else select (y:ys)
+  ixs <- select []
+  return $ map (xs!!) ixs
+
+
+-- | Bayesian inference from likelihood and prior using rejection sampling.
 bayesRejection :: (PDF.PDF a) -> Double -> Prob a -> Prob a
 bayesRejection p c q = bayes
     where bayes = do x <- q
                      u <- unit
-                     if u < p x / c 
+                     if u < p x / c
                         then return x
-                        else bayes      
+                        else bayes
 
 --poisson ::  ::  Double -> [Double] -> IO Double
 -- | Exponential distribution
 expDist rate =  (\u-> negate $ (log(1-u))/rate) `fmap` unit
 
--- | binomial distribution 
+-- | binomial distribution
 binomial :: Int -> Double -> Prob Int
 binomial n p = do
   bools <- forM [1..n] $ const $ fmap (<p) unit
   return $ length $ [t | t@True <- bools]
-  
+
 -- from random-fu
 -- | Gamma distribution
 gamma :: Double -> Double -> Prob Double
-gamma a b 
-     | a < 1 
+gamma a b
+     | a < 1
     = do
         u <- unit
         x <- gamma (1 + a) b
@@ -266,21 +281,21 @@ gamma a b
         where
             d = a - (1 / 3)
             c = recip (3 * sqrt d) -- (1 / 3) / sqrt d
-            
+
             go = do
                 x <- unormal
-                
+
                 let cx = c * x
                     v = (1 + cx) ^ 3
-                    
+
                     x_2 = x * x
                     x_4 = x_2 * x_2
-                
+
                 if cx <= (-1)
                     then go
                     else do
                         u <- unit
-                        
+
                         if         u < 1 - 0.0331 * x_4
                             || log u < 0.5 * x_2  + d * (1 - v + log v)
                             then return (b * d * v)
@@ -292,7 +307,7 @@ invGamma a b = recip `fmap` gamma a b
 
 -- | beta distribution
 beta :: Int -> Int -> Prob Double
-beta a b = 
+beta a b =
     let gam n = do us <- forM [1..n] $ const unit
                    return $ log $ product us
     in do gama1 <- gamma (realToFrac a) 1
