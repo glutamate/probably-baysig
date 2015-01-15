@@ -240,7 +240,7 @@ nDistinctOf wantN xs = do
   let haveN = length xs
       select ys | length ys == wantN = return ys
                 | otherwise = do
-                    y <- oneOf [0..(haveN-1)]
+                    y <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
                     if y `elem` ys
                        then select ys
                        else select (y:ys)
