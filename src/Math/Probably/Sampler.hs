@@ -247,6 +247,15 @@ nDistinctOf wantN xs = do
   ixs <- select []
   return $ map (xs!!) ixs
 
+withoutReplacementFrom :: Eq a => Int -> Prob a -> Prob [a]
+withoutReplacementFrom wantN p = select [] where
+  select ys | length ys == wantN = return ys
+            | otherwise = do
+                y <- p
+                if y `elem` ys
+                  then select ys
+                  else select (y:ys)
+
 
 -- | Bayesian inference from likelihood and prior using rejection sampling.
 bayesRejection :: (PDF.PDF a) -> Double -> Prob a -> Prob a
@@ -260,6 +269,17 @@ bayesRejection p c q = bayes
 --poisson ::  ::  Double -> [Double] -> IO Double
 -- | Exponential distribution
 expDist rate =  (\u-> negate $ (log(1-u))/rate) `fmap` unit
+
+poissonAux :: Double -> Int -> Double -> Prob Int
+poissonAux bigl k p = if p>bigl
+                         then do
+                           u<- unit
+                           poissonAux bigl (k+1) (p*u)
+                         else return (k-1)
+
+poisson :: Double -> (Prob Int)
+poisson lam =  poissonAux (exp (-lam)) 0 1
+
 
 -- | binomial distribution
 binomial :: Int -> Double -> Prob Int
