@@ -217,8 +217,9 @@ discrete weightedSamples =
    let sumWeights = sum $ map fst weightedSamples
        cummWeightedSamples = scanl (\(csum,_) (w,x) -> (csum+w,x)) (0,undefined) $ sortBy (comparing fst) weightedSamples
    in do u <- unit
-         return . snd . fromJust $ find ((>=u*sumWeights) . fst) cummWeightedSamples
-
+         case find ((>=u*sumWeights) . fst) cummWeightedSamples of
+           Just (_,x) -> return x
+           Nothing -> error $ "discrete error u*sumweigts="++show (u*sumWeights)++"wsams="++show (map fst cummWeightedSamples)
 
 -- primOneOf :: [a] -> Seed -> (a, Seed)
 -- primOneOf xs seed
