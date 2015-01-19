@@ -227,6 +227,13 @@ discrete weightedSamples =
 --          idx = floor $ (realToFrac u)*(realToFrac $ length xs )
 --      in (xs !! idx, nextSeed)
 
+shuffle :: [a] -> Prob [a]
+shuffle xs = do
+  uxs <- forM xs $ \x -> do
+    u <- unit
+    return (u,x)
+  return $ map snd $ sortBy (comparing fst) uxs
+
 oneOf :: [a] -> Prob a
 oneOf xs = do idx <- floor `fmap` uniform (0::Double) (realToFrac $ length xs )
               return $ xs !! idx
