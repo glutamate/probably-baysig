@@ -141,7 +141,8 @@ get (f,_) x = f x
 set :: Lens a b -> a -> b -> a
 set (_,f) x y = f x y
 
-
+idlens :: Lens a a
+idlens = (id,  (\_ x -> x))
 
 --, pcaFeatures
 normaliseBy :: (Eq b, Ord b) => Lens a Vec -> Lens a b -> Int -> [a] -> [a]

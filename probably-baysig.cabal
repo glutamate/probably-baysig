@@ -52,6 +52,7 @@ Library
      , Math.Probably.FoldingStats
      , Math.Probably.Utils
      , Math.Probably.PCA
+     , Math.Probably.EMPCA
      , Math.Probably.Circular
      , Strategy.Hamiltonian
      , Strategy.MALA
