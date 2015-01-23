@@ -29,7 +29,7 @@ emPca k iters vecs = do
 
       dat = fromColumns $ map (centre meansds) vecs
 
-      go c 0 = c
+      go c 0 = tr c
       go c iter =
         let x = inv (tr c <> c)<> tr c <> dat
             c1 = dat <> tr x <> inv (x<> tr x)
@@ -37,10 +37,10 @@ emPca k iters vecs = do
 
   cinit <- fmap (p><k) $ sequence $ replicate (p*k) unit
 
-  return $ EmPcaBasis meansds $ go cinit $ trdims "cinit" cinit $ iters
+  return $ EmPcaBasis meansds $ go cinit $ trdims "dat" dat $ trdims "cinit" cinit $ iters
 
 applyEmPca :: EmPcaBasis -> Vec -> Vec
-applyEmPca (EmPcaBasis cent com ) v =  tr com `app` centre cent v
+applyEmPca (EmPcaBasis cent com ) v =  com `app` centre cent v
 
 findCentre :: [Vec] -> VS.Vector (Double,Double)
 findCentre  = uncurry (VS.zipWith (,)) . runStat meanSDF
