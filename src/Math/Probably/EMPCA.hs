@@ -53,7 +53,7 @@ findCentre :: [Vec] -> VS.Vector (Double,Double)
 findCentre  = uncurry (VS.zipWith (,)) . runStat meanSDF
 
 centre :: VS.Vector (Double,Double) -> Vec -> Vec
-centre meansds v = VS.zipWith (\x (mn,sd) -> (x-mn)/sd) v meansds
+centre meansds v = VS.zipWith (\x (mn,_) -> x-mn) v meansds
 
 
 trdims s m = trace (s++": "++show (rows m, cols m))
