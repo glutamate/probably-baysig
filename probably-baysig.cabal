@@ -87,6 +87,17 @@ Library
      , cassava
      , bytestring
 
+executable PCACheck
+   type:              exitcode-stdio-1.0
+   Main-Is:           PCACheck.hs
+   ghc-options:       -O2
+   hs-source-dirs:    test
+   Build-depends:
+       base                    >= 4.6 && < 5
+     , probably-baysig
+     , hmatrix
+     , vector
+
 Test-suite SanityCheck
    type:              exitcode-stdio-1.0
    Main-Is:           SanityCheck.hs
