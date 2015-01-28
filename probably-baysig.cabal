@@ -55,6 +55,7 @@ Library
      , Math.Probably.PCA
      , Math.Probably.EMPCA
      , Math.Probably.Circular
+     , Math.Probably.Datasets
      , Strategy.Hamiltonian
      , Strategy.MALA
      , Strategy.Metropolis
@@ -83,6 +84,8 @@ Library
      , array                   >= 0.5
      , text                    >= 1.1
      , erf
+     , cassava
+     , bytestring
 
 Test-suite SanityCheck
    type:              exitcode-stdio-1.0
