@@ -49,6 +49,7 @@ Library
      , Math.Probably.NelderMead
      , Math.Probably.BFGS
      , Math.Probably.MCMC
+     , Math.Probably.KMedoids
      , Math.Probably.FoldingStats
      , Math.Probably.Utils
      , Math.Probably.PCA
