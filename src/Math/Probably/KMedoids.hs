@@ -12,37 +12,35 @@ import Numeric.LinearAlgebra
 import Math.Probably.Types
 import Math.Probably.Sampler
 
-type DistMap = Map.Map (Int, Int) Double
+import Debug.Trace
+
+type DistMap = ([Int] , (Int -> Int -> Double))
 
 
 kmedoids :: Int -> Int -> DistMap -> Prob [Int]
-kmedoids nclust iters dists = do
-  inits <- nDistinctOf nclust $ allKeys dists
-  return $ kmedoidIter dists inits iters
+kmedoids nclust iters dist = do
+  inits <- nDistinctOf nclust $ fst dist
+  return $ kmedoidIter dist inits iters
 
 kmedoidIter :: DistMap -> [Int] -> Int -> [Int]
 kmedoidIter _ meds 0 = meds
-kmedoidIter dists meds0 iter = kmedoidIter dists meds1 (iter-1) where
+kmedoidIter dists meds0 iter = next where
   clusters = assignToClosestMedoid dists meds0
-  meds1 = map (\(_, pts)-> reassignMedoid dists pts) $ Map.toList clusters
+  meds1 = sort $ map (\(_, pts)-> reassignMedoid dists pts) $ Map.toList clusters
+  next = trace (show meds1)
+         $ if meds1 == meds0
+              then meds1
+              else kmedoidIter dists meds1 (iter-1)
 
-
-allKeys :: DistMap -> [Int]
-allKeys = map fst . Map.keys
 
 getDist :: DistMap -> Int -> Int -> Double
-getDist dists from to
+getDist dists@(_,f) from to
   | from == to = 0
-  | otherwise =
-    case Map.lookup (from, to) dists of
-      Just d -> d
-      Nothing -> case Map.lookup (to,from) dists of
-        Just d -> d
-        Nothing -> error $ "cannot find distance from "++show from ++" to "++show to
+  | otherwise = f from to
 
 assignToClosestMedoid :: DistMap -> [Int] -> Map.Map Int [Int]
 assignToClosestMedoid dists medoids = clusmap where
-  assignmap = Map.fromList $ map (\k -> (k, findNearestMedoid dists medoids k)) $ allKeys dists
+  assignmap = Map.fromList $ map (\k -> (k, findNearestMedoid dists medoids k)) $ fst dists
   clusmap = Map.fromList $ map (\med -> (med, keysWhereValIs assignmap med)) medoids
 
 keysWhereValIs :: Eq a => Map.Map k a -> a -> [k]
