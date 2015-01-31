@@ -2,7 +2,7 @@
 
 module Math.Probably.KMedoids
     where
-import Data.List (transpose, sort, groupBy, minimumBy)
+import Data.List (transpose, sort, groupBy, minimumBy, nub)
 import Data.Function (on)
 import Data.Ord (comparing)
 --import Numeric.LinearAlgebra
@@ -20,14 +20,14 @@ type DistMap = ([Int] , (Int -> Int -> Double))
 kmedoids :: Int -> Int -> DistMap -> Prob [Int]
 kmedoids nclust iters dist = do
   inits <- nDistinctOf nclust $ fst dist
-  return $ kmedoidIter dist inits iters
+  return $ kmedoidIter dist (sort inits) iters
 
 kmedoidIter :: DistMap -> [Int] -> Int -> [Int]
 kmedoidIter _ meds 0 = meds
 kmedoidIter dists meds0 iter = next where
   clusters = assignToClosestMedoid dists meds0
-  meds1 = sort $ map (\(_, pts)-> reassignMedoid dists pts) $ Map.toList clusters
-  next = trace (show meds1)
+  meds1 = sort $ nub $ map (\(_, pts)-> reassignMedoid dists pts) $ Map.toList clusters
+  next = trace (show meds0)
          $ if meds1 == meds0
               then meds1
               else kmedoidIter dists meds1 (iter-1)
