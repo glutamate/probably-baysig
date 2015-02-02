@@ -63,6 +63,8 @@ mean a = constant (recip . fromIntegral . rows $ a) (rows a) <> a
 cov x = (trans xc <> xc) / fromIntegral (rows x - 1)
     where xc = x - asRow (mean x)
 
+covN x = (trans x <> x) / fromIntegral (rows x)
+
 cov0 x = (trans x <> x) / fromIntegral (rows x - 1)
     --where xc = x - asRow (mean x)
 
