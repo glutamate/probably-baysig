@@ -31,7 +31,7 @@ emPca k iters mcinit vecs = do
       n = length vecs
       p = VS.length $ head vecs
 
-      dat = trdimit "dat" $ fromColumns $ map (centre meansds) vecs
+      dat =  fromColumns $ map (centre meansds) vecs
 
       go c 0 = c
       go c iter =
@@ -44,9 +44,9 @@ emPca k iters mcinit vecs = do
              Just c -> return c
   let cfinal = go cinit iters
       cOrth :: Matrix Double
-      cOrth =  trdispit "cOrth" $ orth cfinal
-      xevec = trdispit "cevec" $ truePca $ tr cOrth <> dat
-      evec = trdispit "evec" $ cOrth <>  xevec
+      cOrth =  orth cfinal
+      xevec = truePca $ tr cOrth <> dat
+      evec = cOrth <>  xevec
 --      truepca m = stat m
 
   --    (xevec, eval) = truepca (tr cOrth <> dat)
@@ -71,8 +71,11 @@ trdimit s m = trace (s++": "++show (rows m, cols m)) m
 
 trdispit s m = trace (s++": "++dispf 3 m) m
 
+trdisp s m = trace (s++": "++dispf 3 m)
+
 truePca dataset_mn =
-  let dataset = dataset_mn - asColumn (mean dataset_mn)
+  let mn = asColumn (mean $ tr dataset_mn)
+      dataset = dataset_mn - mn
       cc = covN (tr dataset)
       (cdd,cvv) = eigSH cc
       ii = reverse $ map fst $ sortBy (comparing snd) $ zip [0..] $ VS.toList cdd
