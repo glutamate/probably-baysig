@@ -56,6 +56,7 @@ Library
      , Math.Probably.EMPCA
      , Math.Probably.Circular
      , Math.Probably.Datasets
+     , Math.Probably.KMeans
      , Strategy.Hamiltonian
      , Strategy.MALA
      , Strategy.Metropolis

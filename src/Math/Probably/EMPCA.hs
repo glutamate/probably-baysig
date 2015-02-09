@@ -20,8 +20,7 @@ import Math.Probably.Types
 
 data EmPcaBasis = EmPcaBasis {
    centering :: VS.Vector (Double,Double),
-   cfinal :: Mat,
-   pcastat :: Mat
+   emEvecs :: Mat
    } deriving Show
 
 emPca :: Int -> Int -> Maybe (Matrix Double) -> [Vec] -> Prob EmPcaBasis
@@ -37,26 +36,26 @@ emPca k iters mcinit vecs = do
       go c iter =
         let x = inv (tr c <> c)<> tr c <> dat
             c1 = dat <> tr x <> inv (x<> tr x)
-        in go c1 (iter-1)
+        in go (trace ("EM "++show iter ++ " C00="++show (c1!0!0)) c1) (iter-1)
 
   cinit <- case mcinit of
              Nothing -> fmap (p><k) $ sequence $ replicate (p*k) unit
              Just c -> return c
-  let cfinal = go cinit iters
+  let cfinal = trdimit "cfinal" $ go cinit iters
       cOrth :: Matrix Double
-      cOrth =  orth cfinal
-      xevec = truePca $ tr cOrth <> dat
+      cOrth =  trdimit "cOrth" $ orth cfinal
+      xevec = truePca $ trdimit "pcainput" $ tr cOrth <> dat
       evec = cOrth <>  xevec
 --      truepca m = stat m
 
   --    (xevec, eval) = truepca (tr cOrth <> dat)
-  return $ EmPcaBasis meansds cOrth evec
+  return $ EmPcaBasis meansds evec
 
 showC (m, iter) = "iter "++show iter++" C ="++dispf 2 m
 
 
 applyEmPca :: EmPcaBasis -> Vec -> Vec
-applyEmPca (EmPcaBasis cent _ vp) v =  tr vp <> centre cent v
+applyEmPca (EmPcaBasis cent vp) v =  tr vp <> centre cent v
 
 findCentre :: [Vec] -> VS.Vector (Double,Double)
 findCentre  = uncurry (VS.zipWith (,)) . runStat meanSDF
@@ -73,10 +72,10 @@ trdispit s m = trace (s++": "++dispf 3 m) m
 
 trdisp s m = trace (s++": "++dispf 3 m)
 
-truePca dataset_mn =
-  let mn = asColumn (mean $ tr dataset_mn)
-      dataset = dataset_mn - mn
-      cc = covN (tr dataset)
+truePca dataset =
+  let --mn = trdispit "mn" $ asColumn (mean $ tr dataset_mn)
+      --dataset = trdimit "dataset" $dataset_mn - mn
+      cc = trdimit "cc" $ covN (tr dataset)
       (cdd,cvv) = eigSH cc
       ii = reverse $ map fst $ sortBy (comparing snd) $ zip [0..] $ VS.toList cdd
       evects = cvv ? ii
