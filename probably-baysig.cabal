@@ -98,6 +98,7 @@ executable PCACheck
      , probably-baysig
      , hmatrix
      , vector
+     , random-fu
 
 Test-suite SanityCheck
    type:              exitcode-stdio-1.0

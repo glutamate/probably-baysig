@@ -14,16 +14,14 @@ import Data.Ord (comparing)
 import Data.List (sortBy)
 
 import Math.Probably.PCA
-import Math.Probably.Sampler
-import Math.Probably.Types
-
+import Data.Random
 
 data EmPcaBasis = EmPcaBasis {
    centering :: VS.Vector (Double,Double),
    emEvecs :: Mat
    } deriving Show
 
-emPca :: Int -> Int -> Maybe (Matrix Double) -> [Vec] -> Prob EmPcaBasis
+emPca :: Int -> Int -> Maybe (Matrix Double) -> [Vec] -> RVar EmPcaBasis
 emPca k iters mcinit vecs = do
   let meansds = findCentre vecs
 
@@ -39,7 +37,7 @@ emPca k iters mcinit vecs = do
         in go (trace ("EM "++show iter ++ " C00="++show (c1!0!0)) c1) (iter-1)
 
   cinit <- case mcinit of
-             Nothing -> fmap (p><k) $ sequence $ replicate (p*k) unit
+             Nothing -> fmap (p><k) $ sequence $ replicate (p*k) $ uniform 0 1
              Just c -> return c
   let cfinal = trdimit "cfinal" $ go cinit iters
       cOrth :: Matrix Double

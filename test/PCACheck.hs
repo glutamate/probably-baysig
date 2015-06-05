@@ -1,11 +1,10 @@
 module Main where
 
-import Math.Probably.Types
 import Math.Probably.EMPCA
 import Math.Probably.PCA
 import Math.Probably.Datasets
-import Math.Probably.Sampler
 
+import Data.Random
 import System.Environment
 import Numeric.LinearAlgebra
 import Numeric.LinearAlgebra.Data
@@ -21,7 +20,7 @@ main = do
       covarPre = cov $ fromRows $ plantvs
   disp 2 $ covarPre
   disp 2 $ covar
-  em <- sampleIO $ emPca 3 10 (Just cinit) plantvs
+  em <- sample $ emPca 3 10 (Just cinit) plantvs
   let covarEm = cov $ fromRows $ map (applyEmPca em) plantvs
   disp 2 $ covarEm
 
