@@ -8,20 +8,19 @@ import Data.Ord (comparing)
 import qualified Data.Map.Strict as Map
 
 import Numeric.LinearAlgebra
-import Math.Probably.Types
-import Math.Probably.Sampler
 import Control.Monad
 import Debug.Trace
+import Data.Random
 
 type DistMap = ([Int] , (Int -> Int -> Double))
 
 
-kmedoids :: Int -> Int -> DistMap -> Prob (Map.Map Int [Int])
+kmedoids :: Int -> Int -> DistMap -> RVar (Map.Map Int [Int])
 kmedoids nclust iters dist = do
   inits <- kmedoidInit nclust dist
   return $ kmedoidIter dist inits iters
 
-kmedoidsMany :: Int -> Int -> Int -> DistMap -> Prob [Int]
+kmedoidsMany :: Int -> Int -> Int -> DistMap -> RVar [Int]
 kmedoidsMany nclust iters tries dist = do
   ress <- forM [1..tries] $ \i -> do
      clusters <- kmedoids nclust iters dist
@@ -30,8 +29,8 @@ kmedoidsMany nclust iters tries dist = do
   return $ Map.keys $ fst $ minimumBy (comparing snd) ress
 
 
-kmedoidInit :: Int -> DistMap -> Prob [Int]
-kmedoidInit nclust dist = fmap sort $ nDistinctOf nclust $ fst dist
+kmedoidInit :: Int -> DistMap -> RVar [Int]
+kmedoidInit nclust dist = fmap (sort . take nclust) $ shuffle $  fst dist
 
 
 kmedoidIter :: DistMap -> [Int] -> Int -> Map.Map Int [Int]

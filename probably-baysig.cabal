@@ -87,6 +87,7 @@ Library
      , erf
      , cassava
      , bytestring
+     , random-fu
 
 executable PCACheck
    Main-Is:           PCACheck.hs
