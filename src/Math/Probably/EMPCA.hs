@@ -15,11 +15,37 @@ import Data.List (sortBy)
 
 import Math.Probably.PCA
 import Data.Random
+import Unsafe.Coerce
+import qualified Data.Binary as B
+import Data.Word
+import Control.Applicative
 
 data EmPcaBasis = EmPcaBasis {
    centering :: VS.Vector (Double,Double),
    emEvecs :: Mat
    } deriving Show
+
+instance B.Binary EmPcaBasis where
+  put (EmPcaBasis c m) = do
+      B.put (VS.length c)
+      VS.mapM_ (\(c1,c2) -> B.put (toWord64 c1) >> B.put (toWord64 c2)) c
+      B.put $ rows m
+      B.put $ cols m
+      VS.mapM_ (B.put . toWord64) $ flatten m
+  get = do nc <- B.get
+           c <- VS.replicateM nc $ (,) <$> fmap fromWord64 B.get <*> fmap fromWord64 B.get
+           nrows <- B.get
+           ncols <- B.get
+           mflat <- VS.replicateM (nrows*ncols) $ fmap fromWord64 B.get
+           return $ EmPcaBasis c $ reshape ncols mflat
+
+
+toWord64 :: a -> Word64
+toWord64 = unsafeCoerce
+
+fromWord64 :: Word64 -> a
+fromWord64 = unsafeCoerce
+
 
 emPca :: Int -> Int -> Maybe (Matrix Double) -> [Vec] -> RVar EmPcaBasis
 emPca k iters mcinit vecs = do
