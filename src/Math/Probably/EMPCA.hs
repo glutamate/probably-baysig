@@ -23,7 +23,7 @@ import Control.Applicative
 data EmPcaBasis = EmPcaBasis {
    centering :: VS.Vector (Double,Double),
    emEvecs :: Mat
-   } deriving Show
+   } deriving (Show, Read)
 
 instance B.Binary EmPcaBasis where
   put (EmPcaBasis c m) = do
