@@ -19,6 +19,7 @@ import Unsafe.Coerce
 import qualified Data.Binary as B
 import Data.Word
 import Control.Applicative
+import Control.DeepSeq
 
 data EmPcaBasis = EmPcaBasis {
    centering :: VS.Vector (Double,Double),
@@ -38,6 +39,9 @@ instance B.Binary EmPcaBasis where
            ncols <- B.get
            mflat <- VS.replicateM (nrows*ncols) $ fmap fromWord64 B.get
            return $ EmPcaBasis c $ reshape ncols mflat
+
+instance NFData EmPcaBasis where
+  rnf (EmPcaBasis x y) = rnf x `seq` rnf y
 
 
 toWord64 :: a -> Word64
