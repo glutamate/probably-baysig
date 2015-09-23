@@ -10,3 +10,4 @@ Rplots.pdf
 .cabal-sandbox
 cabal.sandbox.config
 sandbox
+.stack-work
