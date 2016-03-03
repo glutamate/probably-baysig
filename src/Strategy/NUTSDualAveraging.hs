@@ -1,13 +1,13 @@
 -- | See Hoffman, Gelman (2011) The No U-Turn Sampler: Adaptively Setting Path
 --   Lengths in Hamiltonian Monte Carlo.
--- 
+--
 --   This code pretty much follows the notation/structure as the algo in the
 --   paper.
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE DoAndIfThenElse, FlexibleContexts #-}
 
 module Strategy.NUTSDualAveraging (nutsDualAveraging) where
 
@@ -38,15 +38,15 @@ nutsDualAveraging = do
             (tnn, rnn, tpp, rpp, t1, n1, s1, a1, na1) <-
               if   vj == -1
               then do
-                (tnn', rnn', _, _, t1', n1', s1', a1', na1') <- 
+                (tnn', rnn', _, _, t1', n1', s1', a1', na1') <-
                   buildTreeDualAvg lTarget glTarget tn rn logu vj j e t r0
                 return (tnn', rnn', tp, rp, t1', n1', s1', a1', na1')
               else do
-                (_, _, tpp', rpp', t1', n1', s1', a1', na1') <- 
+                (_, _, tpp', rpp', t1', n1', s1', a1', na1') <-
                   buildTreeDualAvg lTarget glTarget tp rp logu vj j e t r0
                 return (tn, rn, tpp', rpp', t1', n1', s1', a1', na1')
 
-            let accept = s1 == 1 && (min 1 (fi n1 / fi n :: Double)) > z 
+            let accept = s1 == 1 && (min 1 (fi n1 / fi n :: Double)) > z
 
                 n2 = n + n1
                 s2 = s1 * stopCriterion tnn tpp rnn rpp
@@ -56,19 +56,19 @@ nutsDualAveraging = do
 
             go (tnn, tpp, rnn, rpp, t2, j1, n2, s2, a1, na1)
 
-        | otherwise = do 
+        | otherwise = do
             put $ Chain (ds, tm) target (lTarget tm) (Just daParams)
             return (a, na)
 
   (alpha, nalpha) <- go (t, t, r0, r0, t, 0, 1, 1, 0, 0)
-  
+
   let (hNext, eNext, eAvgNext) =
           if   mAdapt daParams <= 0
           then (hm, exp logEm, exp logEbarM)
           else (daH daParams, daStepAvg daParams, daStepAvg daParams)
         where
           eta = 1 / (fromIntegral (mAdapt daParams) + tau0 daParams)
-          hm  = (1 - eta) * daH daParams 
+          hm  = (1 - eta) * daH daParams
               + eta * (delta daParams - alpha / fromIntegral nalpha)
 
           zeta = fromIntegral (mAdapt daParams) ** (- (kappa daParams))
@@ -99,7 +99,7 @@ stopCriterion
   -> ContinuousParams
   -> ContinuousParams
   -> Int
-stopCriterion tn tp rn rp = 
+stopCriterion tn tp rn rp =
       indicate (positionDifference `innerProduct` rn >= 0)
     * indicate (positionDifference `innerProduct` rp >= 0)
   where
@@ -112,18 +112,18 @@ buildTreeDualAvg lTarget glTarget t r logu v 0 e t0 r0 = do
       s        = indicate (logu - 1000 <  jointL)
       a        = min 0 (logAcceptProb lTarget (t0, t1) (r0, r1))
   return (t1, r1, t1, r1, t1, n, s, a, 1)
-      
+
 buildTreeDualAvg lTarget glTarget t r logu v j e t0 r0 = do
   z <- lift unit
-  (tn, rn, tp, rp, t1, n1, s1, a1, na1) <- 
+  (tn, rn, tp, rp, t1, n1, s1, a1, na1) <-
     buildTreeDualAvg lTarget glTarget t r logu v (pred j) e t0 r0
 
   if   s1 == 1
   then do
     (tnn, rnn, tpp, rpp, t2, n2, s2, a2, na2) <-
       if   v == -1
-      then do 
-        (tnn', rnn', _, _, t1', n1', s1', a1', na1') <- 
+      then do
+        (tnn', rnn', _, _, t1', n1', s1', a1', na1') <-
           buildTreeDualAvg lTarget glTarget tn rn logu v (pred j) e t0 r0
         return (tnn', rnn', tp, rp, t1', n1', s1', a1', na1')
       else do
@@ -154,11 +154,11 @@ findReasonableEpsilon lTarget glTarget t0 = do
   let (t1, r1) = leapfrog glTarget (t0, r0) 1.0
       a = 2 * indicate (pAccept > 0.5) - 1 :: Int
       pAccept = exp $ logAcceptProb lTarget (t0, t1) (r0, r1)
-      go j e t r 
+      go j e t r
         | j <= 0 = e -- no need to shrink this excessively
-        | (exp $ logAcceptProb lTarget (t0, t) (r0, r)) ^^ a > 2 ^^ (-a) = 
+        | (exp $ logAcceptProb lTarget (t0, t) (r0, r)) ^^ a > 2 ^^ (-a) =
             let (tn, rn) = leapfrog glTarget (t, r) e
-            in  go (pred j) (2 ^^ a * e) tn rn 
+            in  go (pred j) (2 ^^ a * e) tn rn
         | otherwise = e
 
   return $ go 10 1.0 t1 r1
@@ -181,4 +181,3 @@ getDaParams Nothing (Chain (ds, t) target _ Nothing) = do
 getDaParams Nothing (Chain _ _ _ (Just daParams))  = return daParams
 getDaParams (Just daParams) (Chain _ _ _ Nothing)  = return daParams
 getDaParams (Just _) (Chain _ _ _ (Just daParams)) = return daParams
-

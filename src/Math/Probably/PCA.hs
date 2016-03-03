@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction, ScopedTypeVariables #-}
+{-# LANGUAGE NoMonomorphismRestriction, ScopedTypeVariables, FlexibleContexts, TypeFamilies #-}
 
 module Math.Probably.PCA where
 

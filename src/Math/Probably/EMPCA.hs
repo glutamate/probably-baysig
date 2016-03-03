@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction, ScopedTypeVariables #-}
+{-# LANGUAGE NoMonomorphismRestriction, ScopedTypeVariables, FlexibleContexts #-}
 
 module Math.Probably.EMPCA where
 
@@ -62,8 +62,8 @@ emPca k iters mcinit vecs = do
 
       go c 0 = c
       go c iter =
-        let x = inv (tr c <> c)<> tr c <> dat
-            c1 = dat <> tr x <> inv (x<> tr x)
+        let x = inv (tr c <> c)<> tr c <> dat :: Matrix Double
+            c1 = dat <> tr x <> inv (x<> tr x) :: Matrix Double
         in go (trace ("EM "++show iter ++ " C00="++show (c1!0!0)) c1) (iter-1)
 
   cinit <- case mcinit of

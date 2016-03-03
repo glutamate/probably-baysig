@@ -1,13 +1,13 @@
 -- | See Hoffman, Gelman (2011) The No U-Turn Sampler: Adaptively Setting Path
 --   Lengths in Hamiltonian Monte Carlo.
--- 
+--
 --   This code pretty much follows the notation/structure as the algo in the
 --   paper.
 
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE DoAndIfThenElse, FlexibleContexts #-}
 
 module Strategy.NUTS (nuts) where
 
@@ -33,14 +33,14 @@ nuts step = do
               vj <- lift $ oneOf [-1, 1]
               z  <- lift unit
 
-              (tnn, rnn, tpp, rpp, t1, n1, s1) <- 
+              (tnn, rnn, tpp, rpp, t1, n1, s1) <-
                 if   vj == -1
                 then do
-                  (tnn', rnn', _, _, t1', n1', s1') <- 
+                  (tnn', rnn', _, _, t1', n1', s1') <-
                     buildTree lTarget glTarget tn rn logu vj j e
                   return (tnn', rnn', tp, rp, t1', n1', s1')
                 else do
-                  (_, _, tpp', rpp', t1', n1', s1') <- 
+                  (_, _, tpp', rpp', t1', n1', s1') <-
                     buildTree lTarget glTarget tp rp logu vj j e
                   return (tn, rn, tpp', rpp', t1', n1', s1')
 
@@ -69,19 +69,19 @@ buildTree lTarget glTarget t r logu v 0 e = do
 
 buildTree lTarget glTarget t r logu v j e = do
   z <- lift unit
-  (tn, rn, tp, rp, t0, n0, s0) <- 
+  (tn, rn, tp, rp, t0, n0, s0) <-
     buildTree lTarget glTarget t r logu v (pred j) e
 
   if   s0 == 1
   then do
-    (tnn, rnn, tpp, rpp, t1, n1, s1) <- 
+    (tnn, rnn, tpp, rpp, t1, n1, s1) <-
       if   v == -1
       then do
-        (tnn', rnn', _, _, t1', n1', s1') <- 
+        (tnn', rnn', _, _, t1', n1', s1') <-
           buildTree lTarget glTarget tn rn logu v (pred j) e
         return (tnn', rnn', tp, rp, t1', n1', s1')
       else do
-        (_, _, tpp', rpp', t1', n1', s1') <- 
+        (_, _, tpp', rpp', t1', n1', s1') <-
           buildTree lTarget glTarget tp rp logu v (pred j) e
         return (tn, rn, tpp', rpp', t1', n1', s1')
 
@@ -89,7 +89,7 @@ buildTree lTarget glTarget t r logu v j e = do
         n2     = n0 + n1
         s2     = s0 * s1 * stopCriterion tnn tpp rnn rpp
         t2     | accept    = t1
-               | otherwise = t0 
+               | otherwise = t0
 
     return (tnn, rnn, tpp, rpp, t2, n2, s2)
   else return (tn, rn, tp, rp, t0, n0, s0)
@@ -100,9 +100,8 @@ stopCriterion
   -> ContinuousParams
   -> ContinuousParams
   -> Int
-stopCriterion tn tp rn rp = 
+stopCriterion tn tp rn rp =
       indicate (positionDifference `innerProduct` rn >= 0)
     * indicate (positionDifference `innerProduct` rp >= 0)
   where
     positionDifference = tp .- tn
-
