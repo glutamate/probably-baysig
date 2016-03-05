@@ -57,14 +57,18 @@ type Vec = Vector Double
 type Mat = Matrix Double
 
 -- Vector with the mean value of the columns of a matrix
+mean :: Mat -> Vec
 mean a = constant (recip . fromIntegral . rows $ a) (rows a) <> a
 
 -- covariance matrix of a list of observations stored as rows
+cov :: Mat -> Mat
 cov x = (trans xc <> xc) / fromIntegral (rows x - 1)
     where xc = x - asRow (mean x)
 
+covN :: Mat -> Mat
 covN x = (trans x <> x) / fromIntegral (rows x)
 
+cov0 :: Mat -> Mat
 cov0 x = (trans x <> x) / fromIntegral (rows x - 1)
     --where xc = x - asRow (mean x)
 
