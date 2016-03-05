@@ -64,34 +64,35 @@ atLeastOne x | isNaN x || isInfinite x = 1.0
 genInitial :: (Vector Double -> Double) -> [Int] -> (Int -> Double) -> Vector Double -> Simplex
 genInitial f isInt h x0 = sim where
   n = length $ toList x0
-  unit d = buildVector n $ \j -> if j /=d then 0.0 else if d `elem` isInt then atLeastOne $ h j*x0@>d 
-                                                                          else h j*x0@>d  
+  unit d = build n $ \jr -> let j = round jr in
+                            if j /=d then 0.0 else if d `elem` isInt then atLeastOne $ h j*x0!d
+                                                                     else h j*x0!d
   mkv d = with f $ x0 + unit d
-  sim = (x0, f x0) : map mkv [0..n-1] 
+  sim = (x0, f x0) : map mkv [0..n-1]
 
 goNm :: (Vector Double -> Double) -> [Int] -> Double -> Int -> Int -> Simplex -> Simplex
 goNm f' isInt tol nmin nmax sim' = go f' 0 $ sortBy (comparing snd) sim'  where
   go f i sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
-                   fdiff = abs $ snd (last nsim) - snd (head nsim) 
+                   fdiff = abs $ snd (last nsim) - snd (head nsim)
                in case () of
                       _ |  (fdiff < tol && i>nmin) || i>nmax -> nsim
                         |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
                         |  any (isNaN) (map snd nsim) -> sim
-                        |  otherwise   -> go f (i+1) nsim 
+                        |  otherwise   -> go f (i+1) nsim
 
 goNmVerbose :: (Vector Double -> Double) -> [Int] -> Double -> Int -> Int -> Simplex -> Simplex
 goNmVerbose f' isInt tol nmin nmax sim' = go f' 0 $ sortBy (comparing snd) sim' where
   go f i sim = let nsim = sortBy (comparing snd) $ (nmStep f isInt sim)
-                   fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++ 
+                   fdiff = trace ("1: "++ show (fst (head nsim)) ++ "\nlast: "++
                                 show (fst (last nsim)) ++ "\n#"++show i++": "++
-                                show (map snd nsim)) 
-                            abs $ snd (last nsim) - snd (head nsim) 
+                                show (map snd nsim))
+                            abs $ snd (last nsim) - snd (head nsim)
                in case () of
                     _ |  (fdiff < tol && i>nmin) || i>nmax -> nsim
                       |  all (<0) (map snd sim) && any (>0) (map snd nsim) -> sim
                       |  any (isNaN) (map snd nsim) -> sim
                       |  otherwise   -> go f (i+1) nsim
-  
+
 
 nmStep :: (Vector Double -> Double) -> [Int] -> Simplex -> Simplex
 nmStep f isInt s0 = snext where
@@ -116,8 +117,8 @@ nmStep f isInt s0 = snext where
    scontract = if fxc < fxnp1
                   then replaceLast s0 (xc,fxc)
                   else sreduce
-   sreduce = case s0 of 
+   sreduce = case s0 of
               p0@(x1,_):rest -> p0 : (flip map rest $ \(xi,_) -> with f $ x1+nmRho * (xi-x1))
 
-   
+
 with f x = (x, f x)

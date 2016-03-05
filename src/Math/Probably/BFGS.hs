@@ -14,8 +14,8 @@ module Math.Probably.BFGS
 where
 
 import Numeric.LinearAlgebra
-import Numeric.LinearAlgebra.Algorithms
-import Numeric.LinearAlgebra.Util
+import Numeric.LinearAlgebra.Data
+import Numeric.LinearAlgebra.Devel
 import Data.Default
 
 import Debug.Trace
@@ -79,7 +79,7 @@ data BFGS = BFGS { p :: Point
 -- Main solver interface with default options.
 --
 bfgs :: Fn -> GradFn -> Point -> Either String (Point, Hessian)
-bfgs f df p0 = bfgsWith def f df p0 (ident $ dim p0)
+bfgs f df p0 = bfgsWith def f df p0 (ident $ size p0)
 
 
 {- Collection solver state into an infinite list: useful as "take n $
@@ -96,7 +96,7 @@ bfgsInit :: Fn -> GradFn -> Point -> Either String BFGS
 bfgsInit f df p0 = case (hasnan f0, hasnan g0) of
   (False, False) -> Right $ BFGS p0 f0 g0 (-g0) (ident n) (maxStep p0)
   errs -> Left $ nanMsg p0 (Just f0) (Just g0)
-  where n = dim p0 ; f0 = f p0 ; g0 = df p0
+  where n = size p0 ; f0 = f p0 ; g0 = df p0
 
 
 -- Main iteration routine: sets up initial BFGS state, then steps
@@ -138,11 +138,11 @@ bfgsStepWith (BFGSOpts ptol gtol _) f df (BFGS p fp g xi h stpmax) =
       else if cvg
            then Right (True, BFGS pn fpn gn xi h stpmax)
            else Right (False, BFGS pn fpn gn xin hn stpmax)
-      where gn = df pn ; dp = pn - p ; dg = gn - g ; hdg = h <> dg
+      where gn = df pn ; dp = pn - p ; dg = gn - g ; hdg = h #> dg
             dpdg = dp `dot` dg ; dghdg = dg `dot` hdg
             hn = h + ((dpdg + dghdg) / dpdg^2) `scale` (dp `outer` dp) -
                  (1/dpdg) `scale` (h <> (dg `outer` dp) + (dp `outer` dg) <> h)
-            xin = -hn <> gn
+            xin = -hn #> gn
             cvg = maxabsratio dp p < ptol || maxabsratio' (fpn `max` 1) gn p < gtol
 
 
@@ -173,8 +173,8 @@ instance Default LineSearchOpts where
 -- Maximum line search step length.
 --
 maxStep :: Point -> Double
-maxStep p0 = (100 * (norm p0 `max` n))
-  where n = fromIntegral (dim p0)
+maxStep p0 = (100 * (norm_2 p0 `max` n))
+  where n = fromIntegral (size p0)
 
 
 -- Line search with default parameters.
@@ -194,7 +194,7 @@ lineSearchWith :: LineSearchOpts -> Fn -> Point -> Double -> Gradient ->
 lineSearchWith (LineSearchOpts xtol alpha) func xold fold g pin stpmax =
   go 1.0 Nothing
   where p = if pinnorm > stpmax then (stpmax/pinnorm) `scale` pin else pin
-        pinnorm = norm pin
+        pinnorm = norm_2 pin
         slope = g `dot` p
         lammin = xtol / (maxabsratio p xold)
 
