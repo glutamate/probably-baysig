@@ -9,6 +9,7 @@ import Data.Maybe
 import qualified Data.Vector.Storable as V
 import Math.Probably.Types
 import Numeric.LinearAlgebra
+import Numeric.LinearAlgebra.Devel
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 
@@ -24,7 +25,7 @@ sphereGauss xs m sd = product $ zipWith density normalDists xsAsList where
 
 -- | Scalar-vector multiplication.
 (.*) :: Double -> ContinuousParams -> ContinuousParams
-z .* xs = mapVector (* z) xs
+z .* xs = V.map (* z) xs
 
 -- | Scalar-vector subtraction.
 (.-) :: ContinuousParams -> ContinuousParams -> ContinuousParams
@@ -36,7 +37,7 @@ xs .+ ys = zipVectorWith (+) xs ys
 
 -- | The leapfrog integrator.
 leapfrog :: Gradient -> Particle -> Double -> Particle
-leapfrog glTarget (q, r) e = (qf, rf) where 
+leapfrog glTarget (q, r) e = (qf, rf) where
   rm = adjustMomentum glTarget e (q, r)
   qf = adjustPosition e (rm, q)
   rf = adjustMomentum glTarget e (qf, rm)
@@ -63,4 +64,3 @@ indicate False = 0
 
 fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
-

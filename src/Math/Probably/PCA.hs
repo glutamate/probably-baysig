@@ -4,7 +4,6 @@ module Math.Probably.PCA where
 
 import Numeric.LinearAlgebra
 import Numeric.LinearAlgebra.Data
-import Numeric.LinearAlgebra.HMatrix ((#>))
 import Math.Probably.FoldingStats
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Storable as VS
@@ -58,33 +57,33 @@ type Mat = Matrix Double
 
 -- Vector with the mean value of the columns of a matrix
 mean :: Mat -> Vec
-mean a = constant (recip . fromIntegral . rows $ a) (rows a) <> a
+mean a = konst (recip . fromIntegral . rows $ a) (rows a) <> a
 
 -- covariance matrix of a list of observations stored as rows
 cov :: Mat -> Mat
-cov x = (trans xc <> xc) / fromIntegral (rows x - 1)
+cov x = (tr xc <> xc) / fromIntegral (rows x - 1)
     where xc = x - asRow (mean x)
 
 covN :: Mat -> Mat
-covN x = (trans x <> x) / fromIntegral (rows x)
+covN x = (tr x <> x) / fromIntegral (rows x)
 
 cov0 :: Mat -> Mat
-cov0 x = (trans x <> x) / fromIntegral (rows x - 1)
+cov0 x = (tr x <> x) / fromIntegral (rows x - 1)
     --where xc = x - asRow (mean x)
 
 
 type Stat = (Vec, [Double], Mat)
 -- 1st and 2nd order statistics of a dataset (mean, eigenvalues and eigenvectors of cov)
 stat :: Mat -> Stat
-stat x = (m, toList s, trans v) where
+stat x = (m, toList s, tr v) where
     m = mean x
-    (s,v) = eigSH' (cov x)
+    (s,v) = eigSH (cov x)
 
 stat0 :: Mat -> Stat
-stat0 x = (m, toList s, trans v) where
-    m = VS.map (const 0) s
+stat0 x = (m, toList s, tr v) where
+    m = VS.map (konst 0) s
     c = cov0 x
-    (s,v) = eigSH' $ trace ("cov00="++(show (c!0!0))) $ c
+    (s,v) = eigSH $ trace ("cov00="++(show (c!0!0))) $ c
 
 statSVD :: Mat -> Stat
 statSVD x = (m, [], evecs) where
@@ -113,9 +112,9 @@ pcaNSVD  n (m,_,evecs) = (encode,decode)
     decode x = error "not sure right now"
 
 statVs :: [Vector Double] -> Stat
-statVs vs = (m, toList s, trans v) where
+statVs vs = (m, toList s, tr v) where
     m = empiricalMean vs
-    (s,v) = eigSH' (empiricalCovariance' m vs)
+    (s,v) = eigSH (empiricalCovariance' m vs)
 
 mbStat :: Mat -> Maybe Stat
 mbStat = spoon . stat

@@ -52,8 +52,8 @@ Library
      , Math.Probably.KMedoids
      , Math.Probably.FoldingStats
      , Math.Probably.Utils
-     , Math.Probably.PCA
-     , Math.Probably.EMPCA
+--     , Math.Probably.PCA
+--     , Math.Probably.EMPCA
      , Math.Probably.Circular
      , Math.Probably.Datasets
      , Math.Probably.KMeans
@@ -93,6 +93,7 @@ executable PCACheck
    Main-Is:           PCACheck.hs
    ghc-options:       -O2
    hs-source-dirs:    test
+   buildable:         False
    Build-depends:
        base                    >= 4.6 && < 5
      , probably-baysig

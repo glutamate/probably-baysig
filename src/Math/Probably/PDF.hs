@@ -100,23 +100,23 @@ mulPdf d1 d2 = \x -> (d1 x + d2 x)
 -- | multivariate normal
 multiNormal :: Vector Double -> Matrix Double -> PDF (Vector Double)
 multiNormal mu sigma =
-  let k = realToFrac $ dim mu
+  let k = realToFrac $ VS.length mu
       invSigma =  inv sigma
       mat1 = head . head . toLists
-  in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) )
+  in \x-> log (recip ((2*pi)**(k/2) * sqrt(det sigma))) + (mat1 $ negate $ 0.5*(asRow $ x-mu) <> invSigma <> (asColumn $ x-mu) )
 
 
 multiNormalByInv :: Double -> Matrix Double -> Vector Double -> PDF (Vector Double)
 multiNormalByInv lndet invSigma mu =
-  let k = realToFrac $ dim mu
+  let k = realToFrac $ VS.length mu
       mat1 = head . head . toLists
-  in \x-> log 1 - (k/2)*log (2*pi) - lndet/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) )
+  in \x-> log 1 - (k/2)*log (2*pi) - lndet/2 + (mat1 $ negate $ 0.5*(asRow $ x-mu) <> invSigma <> (asColumn $ x-mu) )
 
 multiNormalByInvFixCov ::  Matrix Double -> Vector Double -> PDF (Vector Double)
 multiNormalByInvFixCov invSigma mu =
-  let k = realToFrac $ dim mu
+  let k = realToFrac $ VS.length mu
       mat1 = head . head . toLists
-  in \x-> (mat1 $ negate $ 0.5*(asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu) )
+  in \x-> (mat1 $ negate $ 0.5*(asRow $ x-mu) <> invSigma <> (asColumn $ x-mu) )
 
 
 multiNormalIndep :: Vector Double -> Vector Double -> PDF (Vector Double)
@@ -134,9 +134,9 @@ tstc = let mu = mu1
            sigma = sig1
            x = mu1
            invSigma = inv sigma
-       in (asRow $ x-mu) `multiply` invSigma `multiply` (asColumn $ x-mu)  -}
+       in (asRow $ x-mu) <> invSigma <> (asColumn $ x-mu)  -}
 
-
+{-posdefify :: Matrix Double -> Matrix Double
 posdefify m =
    let (eigvals, eigvecM) = eigSH $ mkSym {- $ trace (show m) -}  m
        n = rows m
@@ -144,7 +144,8 @@ posdefify m =
        f (val,vec) = (abs val,vec)
        q = fromColumns $ map snd eigValsVecs
        bigLambda = diag $ fromList $ map fst eigValsVecs
-   in mkSym $ q `multiply` bigLambda `multiply` inv q
+   in mkSym $ q <> bigLambda <> inv q
 
-mkSym m = buildMatrix (rows m) (cols m)$ \(i,j) ->if i>=j then m @@>(i,j)
-                                                           else m @@>(j,i)
+mkSym :: Matrix Double -> Matrix Double
+mkSym m = build (rows m, cols m) $ \i j ->if i>=j then m !(i,j)
+                                                  else m !(j,i) -}

@@ -8,7 +8,7 @@ import Control.Applicative
 circularMean :: Fold Double Double
 circularMean = before (after vmean getAngle) toCartesian where
   vmean = pure (scale) <*> after realLengthF recip <*> sumF
-  getAngle v = atan2 (v@>1) (v@>0)
+  getAngle v = atan2 (v!1) (v!0)
   toCartesian alpha = fromList [cos alpha, sin alpha]
 
 --http://webspace.ship.edu/pgmarr/Geo441/Lectures/Lec%2016%20-%20Directional%20Statistics.pdf

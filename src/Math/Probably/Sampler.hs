@@ -44,7 +44,8 @@ import Data.Maybe
 import Data.Ord
 import qualified Math.Probably.PDF as PDF
 import Math.Probably.Types
-import Numeric.LinearAlgebra hiding (find)
+import Numeric.LinearAlgebra hiding (find, Seed)
+import qualified Data.Vector.Storable as VS
 import System.Environment
 import System.Random.Mersenne.Pure64
 
@@ -173,26 +174,26 @@ multiNormal :: Vector Double -> Matrix Double -> Prob (Vector Double)
 multiNormal mu sigma =
   let c =   cholSH sigma
       a = trans c
-      k = dim mu
+      k = VS.length mu
   in do z <- fromList `fmap` normalManyUnit k
 --        return $ mu + (head $ toColumns $ a*asRow z)
         let c = asColumn z
         let r = asRow z
-        return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
+        return $ (mu + (head $ toColumns $ a <> asColumn z))
 
 multiNormalByChol :: Vector Double -> Matrix Double -> Prob (Vector Double)
 multiNormalByChol mu cholSigma =
   let a = trans $ cholSigma
-      k = dim mu
+      k = VS.length mu
   in do z <- fromList `fmap` normalManyUnit k
 --        return $ mu + (head $ toColumns $ a*asRow z)
         let c = asColumn z
         let r = asRow z
-        return $ (mu + (head $ toColumns $ a `multiply` asColumn z))
+        return $ (mu + (head $ toColumns $ a <> asColumn z))
 
 multiNormalIndep  :: Vector Double -> Vector Double -> Prob (Vector Double)
 multiNormalIndep vars mus = do
-   let k = dim mus
+   let k = VS.length mus
    gs <- normalManyUnit k
    return $ fromList $ zipWith3 (\var mu g -> g*sqrt(var) + mu) (toList vars) (toList mus) gs
 
